@@ -17,17 +17,31 @@ exports.signup = (req, res) => {
 
 exports.signin = (req, res) => {
     const { username, password } = req.body;
+
     getUserByUsername(username, (err, results) => {
         if (err) return res.status(500).json({ success: false, error: 'Error fetching user' });
         if (results.length === 0) return res.status(401).json({ success: false, message: 'Wrong username or password' });
 
         const user = results[0];
+
         bcrypt.compare(password, user.password, (err, match) => {
-            if (err) return res.status(500).json({ success: false, error: 'Error comparing passwords' });
             if (!match) return res.status(401).json({ success: false, message: 'Wrong username or password' });
 
-            const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
-            res.status(200).json({ success: true, token, data: { id: user.id, username: user.username } });
+            // ✅ Log the user to verify
+            console.log('[Login Success] User:', user);
+
+            // ✅ Must include isAdmin here
+            const token = jwt.sign(
+                { id: user.id, username: user.username, isAdmin: user.isAdmin },
+                process.env.JWT_SECRET,
+                { expiresIn: '1h' }
+            );
+
+            res.status(200).json({
+                success: true,
+                token,
+                data: { id: user.id, username: user.username, isAdmin: user.isAdmin }
+            });
         });
     });
 };

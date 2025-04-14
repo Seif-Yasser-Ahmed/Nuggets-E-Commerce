@@ -7,7 +7,7 @@ module.exports = {
     },
 
     getUserByUsername: (username, cb) => {
-        const query = 'SELECT id, username, password FROM user WHERE username = ?';
+        const query = 'SELECT id, username, password, isAdmin FROM user WHERE username = ?';
         db.query(query, [username], cb);
     },
 

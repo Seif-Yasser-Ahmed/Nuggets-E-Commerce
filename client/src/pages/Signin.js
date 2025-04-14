@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signin } from '../services/authService';
+import { jwtDecode } from 'jwt-decode';
 
 function Signin() {
     const [username, setUsername] = useState('');
@@ -19,13 +20,24 @@ function Signin() {
                 const { id, username } = response.data.data;
                 const token = response.data.token;
 
-                // Store user info and token
+                // Decode token to get isAdmin
+                const decoded = jwtDecode(token);
+                console.log('Decoded token:', decoded);
+                const isAdmin = decoded.isAdmin;
+
+                // Store everything
                 localStorage.setItem('userId', id);
                 localStorage.setItem('username', username);
                 localStorage.setItem('token', token);
+                localStorage.setItem('isAdmin', isAdmin);
+                console.log('isAdmin:', isAdmin);
 
-                // Redirect to profile or home
-                navigate('/profile');
+                // Redirect based on role
+                if (isAdmin) {
+                    navigate('/admin/dashboard');
+                } else {
+                    navigate('/profile');
+                }
             }
         } catch (error) {
             console.error('Signin error:', error.response?.data || error.message);
