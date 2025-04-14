@@ -18,7 +18,7 @@ function Signup() {
                 setUsername('');
                 setPassword('');
                 // Navigate to home page on successful signup
-                navigate('/Home');
+                navigate('/');
             })
             .catch((error) => {
                 console.error('Signup error:', error);

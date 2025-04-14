@@ -9,23 +9,28 @@ function Signin() {
     const [errorMsg, setErrorMsg] = useState('');
     const navigate = useNavigate();
 
-    const submitHandler = (e) => {
+    const submitHandler = async (e) => {
         e.preventDefault();
-        signin({ username, password })
-            .then((response) => {
-                if (response.data && response.data.success) {
-                    // Save user id and username in localStorage
-                    const user = response.data.data;
-                    localStorage.setItem('userId', user.id);
-                    localStorage.setItem('username', user.username);
-                    setErrorMsg('');
-                    navigate('/Home'); // route to profile on successful sign in
-                }
-            })
-            .catch((error) => {
-                console.error('Signin error:', error);
-                setErrorMsg('Wrong email or password');
-            });
+
+        try {
+            const response = await signin({ username, password });
+
+            if (response.data && response.data.success) {
+                const { id, username } = response.data.data;
+                const token = response.data.token;
+
+                // Store user info and token
+                localStorage.setItem('userId', id);
+                localStorage.setItem('username', username);
+                localStorage.setItem('token', token);
+
+                // Redirect to profile or home
+                navigate('/profile');
+            }
+        } catch (error) {
+            console.error('Signin error:', error.response?.data || error.message);
+            setErrorMsg('Wrong email or password');
+        }
     };
 
     return (
@@ -33,8 +38,11 @@ function Signin() {
             <form onSubmit={submitHandler} className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
                 <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">Sign In</h1>
                 {errorMsg && <p className="mb-4 text-center text-red-500">{errorMsg}</p>}
+
                 <div className="mb-4">
-                    <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">Username:</label>
+                    <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                        Username:
+                    </label>
                     <input
                         id="username"
                         type="text"
@@ -45,8 +53,11 @@ function Signin() {
                         required
                     />
                 </div>
+
                 <div className="mb-6">
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password:</label>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                        Password:
+                    </label>
                     <input
                         id="password"
                         type="password"
@@ -57,8 +68,11 @@ function Signin() {
                         required
                     />
                 </div>
-                <button type="submit"
-                    className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+
+                <button
+                    type="submit"
+                    className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
                     Sign In
                 </button>
             </form>
