@@ -8,16 +8,13 @@ function Profile() {
     const [errorMsg, setErrorMsg] = useState('');
     const navigate = useNavigate();
 
-    // Retrieve the user ID from localStorage.
-    // Ensure that your Signin component stores the user id in localStorage (e.g., under 'userId')
-    const storedUserId = localStorage.getItem('userId');
-
     useEffect(() => {
+        const storedUserId = localStorage.getItem('userId'); // Read value inside useEffect
         if (!storedUserId) {
             setErrorMsg('No user ID found. Please sign in.');
             return;
         }
-        // Call getProfile with the stored user id
+        // Fetch the profile using the current user id from localStorage.
         getProfile(storedUserId)
             .then((response) => {
                 setUser(response.data.data);
@@ -26,7 +23,7 @@ function Profile() {
                 console.error('Error fetching profile:', error);
                 setErrorMsg('Failed to fetch profile');
             });
-    }, [storedUserId]);
+    }, []); // Run on mount
 
     return (
         <div className="container mx-auto mt-4 p-4">
@@ -40,7 +37,6 @@ function Profile() {
                     <p>
                         <strong>Username:</strong> {user.username}
                     </p>
-                    {/* Display any additional user details here */}
                 </div>
             ) : (
                 !errorMsg && <p>Loading profile...</p>

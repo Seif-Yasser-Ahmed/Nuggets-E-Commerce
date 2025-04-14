@@ -27,8 +27,8 @@ function App() {
         {/* 🔐 Admin Only Routes */}
         <Route element={<AdminRoute />}>
           <Route path="/admin/dashboard" element={<Dashboard />} />
-          <Route path="/admin/users" element={<Users />} />
-          <Route path="/admin/logs" element={<Logs />} />
+          <Route path="/admin/dashboard/users" element={<Users />} />
+          <Route path="/admin/dashboard/logs" element={<Logs />} />
         </Route>
       </Routes>
     </Router>

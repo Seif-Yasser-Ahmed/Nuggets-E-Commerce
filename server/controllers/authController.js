@@ -5,15 +5,22 @@ const { createUser, getUserByUsername } = require('../models/userModel');
 const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS, 10);
 
 exports.signup = (req, res) => {
-    const { username, password } = req.body;
+    const { firstName, lastName, email, username, password } = req.body;
+
     bcrypt.hash(password, saltRounds, (err, hash) => {
         if (err) return res.status(500).json({ success: false, error: 'Error hashing password' });
-        createUser(username, hash, (err, result) => {
-            if (err) return res.status(500).json({ success: false, error: 'Error inserting user' });
+
+        createUser({ firstName, lastName, email, username, password: hash }, (err, result) => {
+            if (err) {
+                console.error('DB Insert Error:', err);
+                return res.status(500).json({ success: false, error: 'Error inserting user' });
+            }
+
             res.status(201).json({ success: true, message: 'User created successfully' });
         });
     });
 };
+
 
 exports.signin = (req, res) => {
     const { username, password } = req.body;

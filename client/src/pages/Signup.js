@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { signup } from '../services/authService';
 
 function Signup() {
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [email, setEmail] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
@@ -11,10 +14,14 @@ function Signup() {
 
     const submitHandler = (e) => {
         e.preventDefault();
-        signup({ username, password })
+        signup({ firstName, lastName, email, username, password })
             .then((response) => {
                 console.log(response.data);
                 setMessage(response.data.message || 'Signup successful!');
+                // Clear fields
+                setFirstName('');
+                setLastName('');
+                setEmail('');
                 setUsername('');
                 setPassword('');
                 // Navigate to home page on successful signup
@@ -22,7 +29,7 @@ function Signup() {
             })
             .catch((error) => {
                 console.error('Signup error:', error);
-                setMessage('Signup failed. Please try again.');
+                setMessage(error.response?.data?.message || 'Signup failed. Please try again.');
             });
     };
 
@@ -31,6 +38,49 @@ function Signup() {
             <form onSubmit={submitHandler} className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
                 <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">Sign Up</h1>
                 {message && <p className="mb-4 text-center text-red-500">{message}</p>}
+
+                <div className="mb-4">
+                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                        First Name:
+                    </label>
+                    <input
+                        id="firstName"
+                        type="text"
+                        placeholder="First Name"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                    />
+                </div>
+                <div className="mb-4">
+                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                        Last Name:
+                    </label>
+                    <input
+                        id="lastName"
+                        type="text"
+                        placeholder="Last Name"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                    />
+                </div>
+                <div className="mb-4">
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                        Email:
+                    </label>
+                    <input
+                        id="email"
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                    />
+                </div>
                 <div className="mb-4">
                     <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
                         Username:
@@ -38,7 +88,7 @@ function Signup() {
                     <input
                         id="username"
                         type="text"
-                        placeholder="username"
+                        placeholder="Username"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -52,7 +102,7 @@ function Signup() {
                     <input
                         id="password"
                         type="password"
-                        placeholder="password"
+                        placeholder="Password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"

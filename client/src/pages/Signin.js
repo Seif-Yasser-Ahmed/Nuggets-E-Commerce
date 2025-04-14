@@ -36,7 +36,7 @@ function Signin() {
                 if (isAdmin) {
                     navigate('/admin/dashboard');
                 } else {
-                    navigate('/profile');
+                    navigate('/');
                 }
             }
         } catch (error) {
@@ -86,6 +86,14 @@ function Signin() {
                     className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
                     Sign In
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => navigate('/signup')}
+                    className="w-full mt-4 bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                >
+                    New here? Sign Up
                 </button>
             </form>
         </div>
