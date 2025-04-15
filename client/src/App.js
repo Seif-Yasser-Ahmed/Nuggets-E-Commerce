@@ -10,28 +10,36 @@ import AdminRoute from './routes/AdminRoute';
 import Dashboard from './pages/Admin/Dashboard';
 import Users from './pages/Admin/Users';
 import Logs from './pages/Admin/Logs';
+import Reset from './pages/Reset';
+import { ThemeProvider } from './contexts/ThemeContext';
+import Layout from './components/Layout';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/signin" element={<Signin />} />
+    <ThemeProvider>
+      <Router>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/signin" element={<Signin />} />
+            <Route path="/reset" element={<Reset />} />
 
-        {/* 🔐 Protected User Routes */}
-        <Route element={<PrivateRoute />}>
-          <Route path="/profile" element={<Profile />} />
-        </Route>
+            {/* 🔐 Protected User Routes */}
+            <Route element={<PrivateRoute />}>
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+          </Route>
 
-        {/* 🔐 Admin Only Routes */}
-        <Route element={<AdminRoute />}>
-          <Route path="/admin/dashboard" element={<Dashboard />} />
-          <Route path="/admin/dashboard/users" element={<Users />} />
-          <Route path="/admin/dashboard/logs" element={<Logs />} />
-        </Route>
-      </Routes>
-    </Router>
+          {/* 🔐 Admin Only Routes */}
+          <Route element={<AdminRoute />}>
+            <Route path="/admin/dashboard" element={<Dashboard />} />
+            <Route path="/admin/dashboard/users" element={<Users />} />
+            <Route path="/admin/dashboard/logs" element={<Logs />} />
+          </Route>
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
 }
 

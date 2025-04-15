@@ -2,8 +2,10 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+
 dotenv.config();
 
+// const resetRoutes = require('./routes/resetRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -15,6 +17,7 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// app.use('/api/v1/reset', resetRoutes);
 // Public routes
 app.use('/api/v1/users', authRoutes);
 

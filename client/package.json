@@ -6,12 +6,15 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.0.2",
+    "@mui/joy": "^5.0.0-beta.52",
     "@mui/material": "^7.0.2",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.8.4",
+    "flowbite": "^3.1.2",
+    "flowbite-react": "^0.11.7",
     "jwt-decode": "^4.0.0",
     "mysql2": "^3.14.0",
     "react": "^19.1.0",
@@ -46,6 +49,8 @@
     ]
   },
   "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17"
   }
 }
