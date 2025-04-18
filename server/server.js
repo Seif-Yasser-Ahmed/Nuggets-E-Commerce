@@ -9,6 +9,10 @@ dotenv.config();
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const productRoutes = require('./routes/productRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const cartRoutes = require('./routes/cartRoutes');
+const wishlistRoutes = require('./routes/wishlistRoutes');
 const db = require('./db'); // ✅ imported db from db.js
 
 const app = express();
@@ -24,7 +28,20 @@ app.use('/api/v1/users', authRoutes);
 // Protected/user routes
 app.use('/api/v1/users', userRoutes);
 
+// Admin routes
 app.use('/api/v1', adminRoutes);
+
+// Product routes
+app.use('/api/v1/products', productRoutes);
+
+// Order routes
+app.use('/api/v1/orders', orderRoutes);
+
+// Cart routes
+app.use('/api/v1/cart', cartRoutes);
+
+// Wishlist routes
+app.use('/api/v1/wishlist', wishlistRoutes);
 
 // Health check
 app.get('/', (req, res) => {

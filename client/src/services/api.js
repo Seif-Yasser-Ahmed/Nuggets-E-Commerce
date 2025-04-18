@@ -16,4 +16,28 @@ API.interceptors.request.use((config) => {
     return Promise.reject(error);
 });
 
+// Handle response errors, particularly token expiration (403 errors)
+API.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        // Check specifically for token errors (403 Forbidden with "Invalid or expired token" message)
+        if (error.response &&
+            error.response.status === 403 &&
+            error.response.data?.message === 'Invalid or expired token') {
+
+            // Clear authentication data
+            localStorage.removeItem('token');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('username');
+            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('user');
+
+            // Create and dispatch an event to notify the app of logout
+            window.dispatchEvent(new Event('auth-error'));
+        }
+
+        return Promise.reject(error);
+    }
+);
+
 export default API;

@@ -1,5 +1,5 @@
 // client/src/pages/Signup.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signup } from '../services/authService';
 import { useTheme } from '../contexts/ThemeContext';
@@ -11,35 +11,56 @@ function Signup() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
+    const [isSuccess, setIsSuccess] = useState(false);
     const navigate = useNavigate();
-    const { darkMode } = useTheme(); // Using the global theme context
+    const { darkMode } = useTheme();
 
-    const submitHandler = (e) => {
+    // Redirect if user is already logged in
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        const isAdmin = localStorage.getItem('isAdmin') === 'true';
+
+        if (token) {
+            if (isAdmin) {
+                navigate('/admin/dashboard', { replace: true });
+            } else {
+                navigate('/', { replace: true });
+            }
+        }
+    }, [navigate]);
+
+    const submitHandler = async (e) => {
         e.preventDefault();
-        signup({ firstName, lastName, email, username, password })
-            .then((response) => {
-                console.log(response.data);
-                setMessage(response.data.message || 'Signup successful!');
-                // Clear fields
-                setFirstName('');
-                setLastName('');
-                setEmail('');
-                setUsername('');
-                setPassword('');
-                // Navigate to home page on successful signup
-                navigate('/');
-            })
-            .catch((error) => {
-                console.error('Signup error:', error);
-                setMessage(error.response?.data?.message || 'Signup failed. Please try again.');
-            });
+        try {
+            const response = await signup({ firstName, lastName, email, username, password });
+            console.log(response.data);
+
+            setIsSuccess(true);
+            setMessage(response.data.message || 'Signup successful! Redirecting to sign in page...');
+
+            // Clear fields
+            setFirstName('');
+            setLastName('');
+            setEmail('');
+            setUsername('');
+            setPassword('');
+
+            // Navigate to signin page after a short delay
+            setTimeout(() => {
+                navigate('/signin', { replace: true });
+            }, 2000);
+        } catch (error) {
+            console.error('Signup error:', error);
+            setIsSuccess(false);
+            setMessage(error.response?.data?.message || 'Signup failed. Please try again.');
+        }
     };
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen">
             <form onSubmit={submitHandler} className="p-8 rounded-lg shadow-md w-full max-w-sm bg-white dark:bg-gray-800 transition-colors">
                 <h1 className="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-gray-200">Sign Up</h1>
-                {message && <p className="mb-4 text-center text-red-500 dark:text-red-400">{message}</p>}
+                {message && <p className={`mb-4 text-center ${isSuccess ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{message}</p>}
 
                 <div className="mb-4">
                     <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -1,18 +1,25 @@
 // client/src/components/DarkModeToggle.js
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { IconButton, Tooltip } from '@mui/joy';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
 
 const DarkModeToggle = () => {
     const { darkMode, toggleDarkMode } = useTheme();
 
     return (
-        <button
-            onClick={toggleDarkMode}
-            className="px-3 py-1 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition"
-            aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-            {darkMode ? 'Switch to Light' : 'Switch to Dark'}
-        </button>
+        <Tooltip title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"} placement="bottom">
+            <IconButton
+                onClick={toggleDarkMode}
+                variant="soft"
+                color="neutral"
+                aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                size="md"
+            >
+                {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
+        </Tooltip>
     );
 };
 

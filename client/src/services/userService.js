@@ -1,5 +1,6 @@
 // src/services/userService.js
 import axios from 'axios';
+import API from './api'; // Import the configured API instance
 
 // Base API endpoints for different resources
 const USER_API_URL = 'http://localhost:5000/api/v1/users';
@@ -10,6 +11,7 @@ const ORDER_API_URL = 'http://localhost:5000/api/v1/orders';
 const INVENTORY_API_URL = 'http://localhost:5000/api/v1/inventory';
 const SHIPPING_TAX_API_URL = 'http://localhost:5000/api/v1/shipping';  // Endpoint for shipping & tax calculations
 const PROMOTION_API_URL = 'http://localhost:5000/api/v1/promotions';
+const WISHLIST_API_URL = 'http://localhost:5000/api/v1/wishlist'; // Add wishlist endpoint
 
 // -------------------------------------------------
 // 1. User Registration and Authentication
@@ -58,6 +60,10 @@ export const addToCart = (cartItemData) => {
 
 export const getCart = (userId) => {
     return axios.get(`${CART_API_URL}/${userId}`);
+};
+
+export const getCartCount = (userId) => {
+    return axios.get(`${CART_API_URL}/count/${userId}`);
 };
 
 export const updateCartItem = (cartItemId, updateData) => {
@@ -169,4 +175,24 @@ export const updatePromotion = (promoId, promotionData) => {
 
 export const deletePromotion = (promoId) => {
     return axios.delete(`${PROMOTION_API_URL}/${promoId}`);
+};
+
+// -------------------------------------------------
+// 11. Wishlist Management
+// -------------------------------------------------
+export const getWishlist = (userId) => {
+    return API.get(`/wishlist/${userId}`);
+};
+
+export const addToWishlist = (wishlistData) => {
+    // Make sure we're sending the correct data format expected by the server
+    const { userId, productId } = wishlistData;
+    if (!userId || !productId) {
+        throw new Error('User ID and Product ID are required');
+    }
+    return API.post(`/wishlist`, { userId, productId });
+};
+
+export const removeFromWishlist = (userId, productId) => {
+    return API.delete(`/wishlist/${userId}/${productId}`);
 };

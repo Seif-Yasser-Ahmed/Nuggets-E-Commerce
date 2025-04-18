@@ -1,7 +1,8 @@
 // client/src/pages/Signin.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signin } from '../services/authService';
+import { mergeGuestCartWithUserCart } from '../services/cartService';
 import { jwtDecode } from 'jwt-decode';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -11,6 +12,20 @@ function Signin() {
     const [errorMsg, setErrorMsg] = useState('');
     const navigate = useNavigate();
     const { darkMode } = useTheme();
+
+    // Redirect if user is already logged in
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        const isAdmin = localStorage.getItem('isAdmin') === 'true';
+
+        if (token) {
+            if (isAdmin) {
+                navigate('/admin/dashboard', { replace: true });
+            } else {
+                navigate('/', { replace: true });
+            }
+        }
+    }, [navigate]);
 
     const submitHandler = async (e) => {
         e.preventDefault();
@@ -32,13 +47,32 @@ function Signin() {
                 localStorage.setItem('username', username);
                 localStorage.setItem('token', token);
                 localStorage.setItem('isAdmin', isAdmin);
+                localStorage.setItem('user', JSON.stringify({
+                    id,
+                    username,
+                    isAdmin
+                }));
                 console.log('isAdmin:', isAdmin);
 
-                // Redirect based on role
+                // IMPORTANT: Merge guest cart with user cart
+                try {
+                    await mergeGuestCartWithUserCart(id);
+                    console.log('Cart merged successfully');
+
+                    // Dispatch event to update cart count in navbar after merge
+                    window.dispatchEvent(new CustomEvent('cart-updated'));
+                } catch (cartError) {
+                    console.error('Error merging carts:', cartError);
+                }
+
+                // Store the current time as login time
+                sessionStorage.setItem('loginTime', Date.now());
+
+                // Redirect based on role (with replace: true to prevent back navigation)
                 if (isAdmin) {
-                    navigate('/admin/dashboard');
+                    navigate('/admin/dashboard', { replace: true });
                 } else {
-                    navigate('/');
+                    navigate('/', { replace: true });
                 }
             }
         } catch (error) {
