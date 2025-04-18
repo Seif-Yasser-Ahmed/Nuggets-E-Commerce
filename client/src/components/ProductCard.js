@@ -1,5 +1,5 @@
 // src/components/ProductCard.js
-import * as React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AspectRatio from '@mui/joy/AspectRatio';
 import Button from '@mui/joy/Button';
@@ -14,68 +14,67 @@ import StarIcon from '@mui/icons-material/Star';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
-import ImageNotSupportedIcon from '@mui/icons-material/ImageNotSupported'; // Import placeholder icon
-import { useTheme } from '../contexts/ThemeContext';
-import { getWishlist, addToWishlist, removeFromWishlist } from '../services/userService';
-import { addToCart } from '../services/cartService'; // Updated import
+import ImageNotSupportedIcon from '@mui/icons-material/ImageNotSupported';
 import Snackbar from '@mui/joy/Snackbar';
 import Alert from '@mui/joy/Alert';
+import { useTheme } from '../contexts/ThemeContext';
+import { getWishlist, addToWishlist, removeFromWishlist } from '../services/userService';
+import { addToCart } from '../services/cartService';
 
 export default function ProductCard({ product }) {
     const navigate = useNavigate();
     const { isDarkMode } = useTheme();
-    const [isFavorited, setIsFavorited] = React.useState(false);
-    const [isHovered, setIsHovered] = React.useState(false);
-    const [notification, setNotification] = React.useState({
+    const [isFavorited, setIsFavorited] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const [notification, setNotification] = useState({
         show: false,
         message: '',
         severity: 'success'
     });
 
-    // Default product data if not provided, but no default for image
+    // Extract product properties with defaults
     const {
-        id = '1',
-        name = 'Super Rockez A400',
-        category = 'Bluetooth Headset',
-        price = 2900,
-        currency = 'THB',
-        image = null, // No default image, handle null case properly
-        rating = 4.5,
-        stock = 7,
-        discount = 15,
-        isNewArrival = true
+        id = '',
+        name = 'Product Name',
+        category = 'Category',
+        price = 0,
+        currency = 'EG',
+        image = null,
+        rating = 0,
+        stock = 0,
+        discount = 0,
+        isNewArrival = false
     } = product || {};
 
-    React.useEffect(() => {
-        // Check if this product is in the user's wishlist
+    // Calculate original price if there's a discount
+    const originalPrice = discount > 0 ? (price / (1 - discount / 100)).toFixed(0) : null;
+
+    // Check if the product is in the user's wishlist on component mount
+    useEffect(() => {
         const checkWishlistStatus = async () => {
             try {
                 const userId = localStorage.getItem('userId');
-                if (!userId) {
-                    console.log('User not logged in, skipping wishlist check');
-                    return;
-                }
+                if (!userId) return;
 
-                console.log(`Checking wishlist for user ${userId} and product ${id}`);
                 const response = await getWishlist(userId);
-                console.log('Wishlist response:', response);
 
                 if (response.data && response.data.data) {
-                    // Check if this product ID is in the wishlist
-                    const isInWishlist = response.data.data.some(item => item.id === id);
-                    console.log(`Product ${id} in wishlist: ${isInWishlist}`);
+                    const isInWishlist = response.data.data.some(
+                        item => item.id && item.id.toString() === id.toString()
+                    );
                     setIsFavorited(isInWishlist);
-                } else {
-                    console.log('No wishlist data found or empty wishlist');
                 }
             } catch (error) {
-                console.error('Error checking wishlist status:', error.response || error);
+                console.error('Error checking wishlist status:', error);
             }
         };
 
-        checkWishlistStatus();
+        if (id) {
+            checkWishlistStatus();
+        }
     }, [id]);
 
+    // Show notification function
     const showNotification = (message, severity = 'success') => {
         setNotification({
             show: true,
@@ -88,15 +87,18 @@ export default function ProductCard({ product }) {
         }, 3000);
     };
 
+    // Render star ratings
     const renderStars = (rating) => {
         const stars = [];
         const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 !== 0;
+        const hasHalfStar = rating % 1 >= 0.5;
 
+        // Add full stars
         for (let i = 0; i < fullStars; i++) {
             stars.push(<StarIcon key={i} sx={{ color: 'warning.500', fontSize: 16 }} />);
         }
 
+        // Add half star if needed
         if (hasHalfStar) {
             stars.push(
                 <span key="half" style={{ position: 'relative', display: 'inline-flex' }}>
@@ -113,36 +115,38 @@ export default function ProductCard({ product }) {
             );
         }
 
-        const emptyStars = 5 - stars.length;
+        // Add empty stars
+        const emptyStars = 5 - (fullStars + (hasHalfStar ? 1 : 0));
         for (let i = 0; i < emptyStars; i++) {
-            stars.push(<StarIcon key={`empty-${i}`} sx={{ color: isDarkMode ? 'grey.700' : 'grey.300', fontSize: 16 }} />);
+            stars.push(
+                <StarIcon
+                    key={`empty-${i}`}
+                    sx={{ color: isDarkMode ? 'grey.700' : 'grey.300', fontSize: 16 }}
+                />
+            );
         }
 
         return stars;
     };
 
+    // Navigate to product details page
     const handleCardClick = () => {
         navigate(`/item/${id}`);
     };
 
+    // Handle adding product to cart
     const handleAddToCart = async (e) => {
         e.stopPropagation(); // Prevent navigating to item page when clicking the button
+
         try {
             const userId = localStorage.getItem('userId');
             const token = localStorage.getItem('token');
 
-            // If user is not logged in, add to guest cart in local storage
             if (!userId || !token) {
-                await addToCart({
-                    productId: id,
-                    quantity: 1
-                });
-                showNotification('Added to cart successfully!');
-                window.dispatchEvent(new CustomEvent('cart-updated'));
+                showNotification('Please sign in to add items to your cart', 'warning');
+                navigate('/signin', { state: { returnTo: `/item/${id}` } });
                 return;
             }
-
-            console.log('Adding to cart with token:', token ? 'Token exists' : 'No token');
 
             await addToCart({
                 userId,
@@ -157,10 +161,7 @@ export default function ProductCard({ product }) {
         } catch (error) {
             console.error('Error adding to cart:', error);
 
-            // Check for specific error types
             if (error.response) {
-                console.log('Error response:', error.response.status, error.response.data);
-
                 if (error.response.status === 401) {
                     // Token expired or invalid
                     localStorage.removeItem('token');
@@ -178,6 +179,7 @@ export default function ProductCard({ product }) {
         }
     };
 
+    // Toggle wishlist status
     const toggleFavorite = async (e) => {
         e.stopPropagation(); // Prevent navigating to item page when clicking the button
 
@@ -185,7 +187,7 @@ export default function ProductCard({ product }) {
             const userId = localStorage.getItem('userId');
             if (!userId) {
                 showNotification('Please sign in to add items to your wishlist', 'warning');
-                navigate('/signin');
+                navigate('/signin', { state: { returnTo: `/item/${id}` } });
                 return;
             }
 
@@ -210,10 +212,9 @@ export default function ProductCard({ product }) {
         }
     };
 
-    const originalPrice = discount ? (price / (1 - discount / 100)).toFixed(0) : null;
-
     return (
         <>
+            {/* Notification */}
             {notification.show && (
                 <Snackbar
                     open={notification.show}
@@ -230,6 +231,7 @@ export default function ProductCard({ product }) {
                 </Snackbar>
             )}
 
+            {/* Product Card */}
             <Card
                 onClick={handleCardClick}
                 onMouseEnter={() => setIsHovered(true)}
@@ -263,8 +265,6 @@ export default function ProductCard({ product }) {
                             <img
                                 className="product-image"
                                 src={image}
-                                srcSet={`${image}?dpr=2 2x`}
-                                loading="lazy"
                                 alt={name}
                                 style={{
                                     objectFit: 'cover',
@@ -363,8 +363,9 @@ export default function ProductCard({ product }) {
                                 startDecorator={<ShoppingCartIcon />}
                                 onClick={handleAddToCart}
                                 sx={{ backdropFilter: 'blur(8px)' }}
+                                disabled={stock <= 0}
                             >
-                                Add to Cart
+                                {stock > 0 ? 'Add to Cart' : 'Out of Stock'}
                             </Button>
                         </Box>
                     </AspectRatio>
@@ -398,7 +399,7 @@ export default function ProductCard({ product }) {
                             {renderStars(rating)}
                         </Box>
                         <Typography level="body-sm" textColor={isDarkMode ? 'neutral.400' : 'neutral.600'}>
-                            ({rating})
+                            ({rating.toFixed(1)})
                         </Typography>
                     </Box>
 
@@ -429,11 +430,11 @@ export default function ProductCard({ product }) {
                         <Typography
                             level="body-sm"
                             sx={{
-                                color: stock < 10 ? 'danger.500' : 'success.500',
+                                color: stock <= 0 ? 'danger.500' : (stock < 10 ? 'warning.500' : 'success.500'),
                                 fontWeight: 'md'
                             }}
                         >
-                            {stock < 10 ? `Only ${stock} left!` : 'In Stock'}
+                            {stock <= 0 ? 'Out of Stock' : (stock < 10 ? `Only ${stock} left!` : 'In Stock')}
                         </Typography>
                     </Box>
                 </CardContent>

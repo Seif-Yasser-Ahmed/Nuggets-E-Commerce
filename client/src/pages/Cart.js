@@ -106,7 +106,7 @@ const Cart = () => {
                                 image_url: product.image_url,
                                 quantity: item.quantity,
                                 category: product.category || 'Unknown',
-                                currency: 'THB'
+                                currency: 'EGP'
                             };
                         });
                     }
@@ -393,7 +393,7 @@ const Cart = () => {
                                                     level="title-md"
                                                     sx={{ fontWeight: 'bold', color: isDarkMode ? 'primary.300' : 'primary.500' }}
                                                 >
-                                                    {(item.price * item.quantity).toLocaleString()} {item.currency || 'THB'}
+                                                    {(item.price * item.quantity).toLocaleString()} {item.currency || 'EGP'}
                                                 </Typography>
                                             </Box>
 
@@ -476,7 +476,7 @@ const Cart = () => {
                                                 </Sheet>
 
                                                 <Typography level="body-sm" sx={{ mx: 2, display: { xs: 'none', sm: 'block' } }}>
-                                                    {item.price.toLocaleString()} {item.currency || 'THB'} each
+                                                    {item.price.toLocaleString()} {item.currency || 'EGP'} each
                                                 </Typography>
 
                                                 {/* Remove Button */}
@@ -521,22 +521,22 @@ const Cart = () => {
                             <Stack spacing={2}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography>Subtotal</Typography>
-                                    <Typography>{subtotal.toLocaleString()} THB</Typography>
+                                    <Typography>{subtotal.toLocaleString()} EGP</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography>Shipping</Typography>
-                                    <Typography>{shipping.toLocaleString()} THB</Typography>
+                                    <Typography>{shipping.toLocaleString()} EGP</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography>Tax (14%)</Typography>
-                                    <Typography>{tax.toLocaleString()} THB</Typography>
+                                    <Typography>{tax.toLocaleString()} EGP</Typography>
                                 </Box>
 
                                 <Divider />
 
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Typography level="title-md">Total</Typography>
-                                    <Typography level="title-md">{total.toLocaleString()} THB</Typography>
+                                    <Typography level="title-md">{total.toLocaleString()} EGP</Typography>
                                 </Box>
 
                                 <Button

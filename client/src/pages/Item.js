@@ -44,7 +44,7 @@ const mockProduct = {
     name: 'Super Rockez A400 Bluetooth Headphones',
     description: 'Experience unparalleled sound quality with these premium wireless headphones. Featuring active noise cancellation, 40-hour battery life, and comfortable over-ear design.',
     price: 2900,
-    currency: 'THB',
+    currency: 'EGP',
     discount: 15,
     rating: 4.5,
     reviewCount: 124,

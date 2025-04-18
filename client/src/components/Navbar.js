@@ -3,15 +3,29 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { getCartCount } from '../services/userService';
-import { getGuestCart } from '../services/cartService'; // Import guest cart function
+import { getGuestCart } from '../services/cartService';
 import DarkModeToggle from './DarkModeToggle';
-import { Typography, Button, IconButton, Badge, Avatar, Menu, MenuItem, Box, Drawer, List, ListItem } from '@mui/joy';
-import { AppBar, Toolbar } from '@mui/material';
+import {
+    Typography,
+    Button,
+    IconButton,
+    Badge,
+    Avatar,
+    Box,
+    Drawer,
+    List,
+    ListItem,
+    Divider
+} from '@mui/joy';
+import { AppBar, Toolbar, Popover, Menu, MenuItem } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import StorefrontIcon from '@mui/icons-material/Storefront';
+import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import PersonIcon from '@mui/icons-material/Person';
 
 export default function Navbar() {
     const { darkMode } = useTheme();
@@ -22,10 +36,12 @@ export default function Navbar() {
     const [anchorEl, setAnchorEl] = useState(null);
     const open = Boolean(anchorEl);
     const [cartCount, setCartCount] = useState(0);
+    const [username, setUsername] = useState('');
 
     // Fetch cart count for logged-in user
     const fetchCartCount = async (userId) => {
         try {
+
             const response = await getCartCount(userId);
             if (response.data && response.data.success) {
                 setCartCount(response.data.data.count || 0);
@@ -49,24 +65,36 @@ export default function Navbar() {
         }
     };
 
+    // Check authentication status on component mount and when localStorage changes
     useEffect(() => {
-        const user = localStorage.getItem('user');
-        const userId = localStorage.getItem('userId');
-        const token = localStorage.getItem('token');
+        const checkAuth = () => {
+            const token = localStorage.getItem('token');
+            const userId = localStorage.getItem('userId');
+            const storedUsername = localStorage.getItem('username');
+            const adminStatus = localStorage.getItem('isAdmin') === 'true';
 
-        if (user && userId && token) {
-            setIsLoggedIn(true);
-            setIsAdmin(localStorage.getItem('isAdmin') === 'true');
+            setIsLoggedIn(!!token && !!userId);
+            setIsAdmin(adminStatus);
+            setUsername(storedUsername || 'User');
 
-            // Fetch real cart count from database for logged in user
-            fetchCartCount(userId);
-        } else {
-            setIsLoggedIn(false);
-            setIsAdmin(false);
+            if (token && userId) {
+                // Fetch real cart count from database for logged in user
+                fetchCartCount(userId);
+            } else {
+                // Get cart count from localStorage for guest user
+                getGuestCartCount();
+            }
+        };
 
-            // Get cart count from localStorage for guest user
-            getGuestCartCount();
-        }
+        checkAuth();
+
+        // Listen for storage events to update navbar when user logs in/out in another tab
+        const handleStorageChange = () => {
+            checkAuth();
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
     // Listen for cart updates
@@ -94,6 +122,35 @@ export default function Navbar() {
         };
     }, []);
 
+    // Listen for auth status changes
+    useEffect(() => {
+        // Create a function to handle auth status change events
+        const handleAuthChange = () => {
+            const token = localStorage.getItem('token');
+            const userId = localStorage.getItem('userId');
+            const storedUsername = localStorage.getItem('username');
+            const adminStatus = localStorage.getItem('isAdmin') === 'true';
+
+            setIsLoggedIn(!!token && !!userId);
+            setIsAdmin(adminStatus);
+            setUsername(storedUsername || 'User');
+
+            if (token && userId) {
+                fetchCartCount(userId);
+            } else {
+                getGuestCartCount();
+            }
+        };
+
+        // Add event listener for auth status changes
+        window.addEventListener('auth-status-changed', handleAuthChange);
+
+        // Clean up event listener
+        return () => {
+            window.removeEventListener('auth-status-changed', handleAuthChange);
+        };
+    }, []);
+
     const handleProfileMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
     };
@@ -107,107 +164,201 @@ export default function Navbar() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('user');
+        // Clear auth data from localStorage
         localStorage.removeItem('token');
         localStorage.removeItem('userId');
         localStorage.removeItem('username');
         localStorage.removeItem('isAdmin');
+        localStorage.removeItem('userProfile');
+
         setIsLoggedIn(false);
         setIsAdmin(false);
+        setUsername('');
+        handleMenuClose();
 
         // Update cart count to show guest cart after logout
         getGuestCartCount();
 
+        // Dispatch auth change event
+        window.dispatchEvent(new CustomEvent('auth-status-changed'));
+
         navigate('/signin', { replace: true });
     };
 
-    const menuId = 'primary-account-menu';
-    const renderMenu = (
-        <Menu
-            anchorEl={anchorEl}
-            id={menuId}
-            open={open}
-            onClose={handleMenuClose}
-            placement="bottom-end"
-        >
-            <MenuItem onClick={() => { handleMenuClose(); navigate('/profile'); }}>
-                <AccountCircleIcon sx={{ mr: 1, fontSize: 20 }} /> Profile
-            </MenuItem>
-            {isAdmin && (
-                <MenuItem onClick={() => { handleMenuClose(); navigate('/admin/dashboard'); }}>
-                    <StorefrontIcon sx={{ mr: 1, fontSize: 20 }} /> Admin Dashboard
-                </MenuItem>
-            )}
-            <MenuItem onClick={handleLogout}>
-                <LogoutIcon sx={{ mr: 1, fontSize: 20 }} /> Sign Out
-            </MenuItem>
-        </Menu>
-    );
-
     const drawer = (
-        <Box sx={{ width: 250, p: 2, height: '100%', bgcolor: darkMode ? 'neutral.900' : 'background.surface' }}>
-            <Typography level="h5" sx={{ mb: 2, fontWeight: 'bold' }}>Nuggets Shop</Typography>
-            <List>
+        <Box sx={{
+            width: 250,
+            p: 2,
+            height: '100%',
+            bgcolor: darkMode ? 'neutral.900' : 'background.surface',
+            display: 'flex',
+            flexDirection: 'column'
+        }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <StorefrontIcon sx={{ mr: 1, fontSize: 28 }} />
+                <Typography level="title-lg" sx={{ fontWeight: 'bold' }}>
+                    Nuggets Shop
+                </Typography>
+            </Box>
+
+            <Divider sx={{ my: 1 }} />
+
+            <List sx={{ flexGrow: 1 }}>
                 <ListItem>
-                    <Link to="/" className={`w-full py-2 px-3 rounded-md transition-colors ${darkMode ? 'text-white hover:bg-gray-800' : 'text-gray-900 hover:bg-gray-100'}`}>
+                    <Button
+                        component={Link}
+                        to="/"
+                        variant="plain"
+                        color="neutral"
+                        fullWidth
+                        sx={{ justifyContent: 'flex-start' }}
+                    >
                         Home
-                    </Link>
+                    </Button>
                 </ListItem>
                 <ListItem>
-                    <Link to="/store" className={`w-full py-2 px-3 rounded-md transition-colors ${darkMode ? 'text-white hover:bg-gray-800' : 'text-gray-900 hover:bg-gray-100'}`}>
+                    <Button
+                        component={Link}
+                        to="/store"
+                        variant="plain"
+                        color="neutral"
+                        fullWidth
+                        startDecorator={<ShoppingBagIcon />}
+                        sx={{ justifyContent: 'flex-start' }}
+                    >
                         Store
-                    </Link>
+                    </Button>
                 </ListItem>
-                {!isLoggedIn ? (
+
+                {isLoggedIn ? (
                     <>
                         <ListItem>
-                            <Link to="/signin" className={`w-full py-2 px-3 rounded-md transition-colors ${darkMode ? 'text-white hover:bg-gray-800' : 'text-gray-900 hover:bg-gray-100'}`}>
-                                Sign In
-                            </Link>
+                            <Button
+                                component={Link}
+                                to="/profile"
+                                variant="plain"
+                                color="neutral"
+                                fullWidth
+                                startDecorator={<PersonIcon />}
+                                sx={{ justifyContent: 'flex-start' }}
+                            >
+                                My Profile
+                            </Button>
                         </ListItem>
                         <ListItem>
-                            <Link to="/signup" className={`w-full py-2 px-3 rounded-md transition-colors ${darkMode ? 'text-white hover:bg-gray-800' : 'text-gray-900 hover:bg-gray-100'}`}>
-                                Sign Up
-                            </Link>
+                            <Button
+                                component={Link}
+                                to="/cart"
+                                variant="plain"
+                                color="neutral"
+                                fullWidth
+                                startDecorator={
+                                    <Badge badgeContent={cartCount} color="danger">
+                                        <ShoppingCartIcon />
+                                    </Badge>
+                                }
+                                sx={{ justifyContent: 'flex-start' }}
+                            >
+                                Cart
+                            </Button>
                         </ListItem>
+
+                        {isAdmin && (
+                            <ListItem>
+                                <Button
+                                    component={Link}
+                                    to="/admin/dashboard"
+                                    variant="plain"
+                                    color="neutral"
+                                    fullWidth
+                                    startDecorator={<DashboardIcon />}
+                                    sx={{ justifyContent: 'flex-start' }}
+                                >
+                                    Admin Dashboard
+                                </Button>
+                            </ListItem>
+                        )}
                     </>
                 ) : (
                     <>
                         <ListItem>
-                            <Link to="/profile" className={`w-full py-2 px-3 rounded-md transition-colors ${darkMode ? 'text-white hover:bg-gray-800' : 'text-gray-900 hover:bg-gray-100'}`}>
-                                Profile
-                            </Link>
+                            <Button
+                                component={Link}
+                                to="/cart"
+                                variant="plain"
+                                color="neutral"
+                                fullWidth
+                                startDecorator={
+                                    <Badge badgeContent={cartCount} color="danger">
+                                        <ShoppingCartIcon />
+                                    </Badge>
+                                }
+                                sx={{ justifyContent: 'flex-start' }}
+                            >
+                                Cart
+                            </Button>
                         </ListItem>
                         <ListItem>
-                            <Link to="/cart" className={`w-full py-2 px-3 rounded-md transition-colors ${darkMode ? 'text-white hover:bg-gray-800' : 'text-gray-900 hover:bg-gray-100'}`}>
-                                Cart {cartCount > 0 && `(${cartCount})`}
-                            </Link>
+                            <Button
+                                component={Link}
+                                to="/signin"
+                                variant="plain"
+                                color="neutral"
+                                fullWidth
+                                sx={{ justifyContent: 'flex-start' }}
+                            >
+                                Sign In
+                            </Button>
                         </ListItem>
-                        {isAdmin && (
-                            <ListItem>
-                                <Link to="/admin/dashboard" className={`w-full py-2 px-3 rounded-md transition-colors ${darkMode ? 'text-white hover:bg-gray-800' : 'text-gray-900 hover:bg-gray-100'}`}>
-                                    Admin Dashboard
-                                </Link>
-                            </ListItem>
-                        )}
                         <ListItem>
-                            <Button onClick={handleLogout} variant="soft" color="danger" fullWidth>
-                                Sign Out
+                            <Button
+                                component={Link}
+                                to="/signup"
+                                variant="plain"
+                                color="neutral"
+                                fullWidth
+                                sx={{ justifyContent: 'flex-start' }}
+                            >
+                                Sign Up
                             </Button>
                         </ListItem>
                     </>
                 )}
             </List>
+
+            {isLoggedIn && (
+                <Box sx={{ mt: 'auto', pt: 2 }}>
+                    <Divider sx={{ my: 2 }} />
+                    <Button
+                        variant="soft"
+                        color="danger"
+                        onClick={handleLogout}
+                        fullWidth
+                        startDecorator={<LogoutIcon />}
+                    >
+                        Sign Out
+                    </Button>
+                </Box>
+            )}
+
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                <DarkModeToggle />
+            </Box>
         </Box>
     );
 
     return (
         <>
-            <AppBar position="sticky" color={darkMode ? "neutral" : "primary"} sx={{
-                py: 1,
-                bgcolor: darkMode ? 'neutral.900' : 'primary.500',
-                boxShadow: 'md'
-            }}>
+            <AppBar
+                position="sticky"
+                color={darkMode ? "default" : "primary"}
+                sx={{
+                    py: 1,
+                    bgcolor: darkMode ? 'neutral.900' : 'primary.500',
+                    boxShadow: 'md',
+                    zIndex: 1200 // Higher zIndex to ensure it's above other content
+                }}
+            >
                 <Toolbar sx={{ justifyContent: 'space-between' }}>
                     {/* Left side - Logo and mobile menu button */}
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -239,7 +390,30 @@ export default function Navbar() {
 
                     {/* Right side - Auth, Cart, and Theme */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {!isLoggedIn ? (
+                        <IconButton
+                            component={Link}
+                            to="/cart"
+                            variant="soft"
+                            color="neutral"
+                        >
+                            <Badge badgeContent={cartCount} color="danger">
+                                <ShoppingCartIcon />
+                            </Badge>
+                        </IconButton>
+
+                        {isLoggedIn ? (
+                            <IconButton
+                                onClick={handleProfileMenuOpen}
+                                size="sm"
+                                variant="soft"
+                                color="neutral"
+                                aria-label="account menu"
+                            >
+                                <Avatar size="sm" variant="outlined">
+                                    {username?.charAt(0)?.toUpperCase() || 'U'}
+                                </Avatar>
+                            </IconButton>
+                        ) : (
                             <>
                                 <Button
                                     component={Link}
@@ -259,25 +433,15 @@ export default function Navbar() {
                                 >
                                     Sign Up
                                 </Button>
-                            </>
-                        ) : (
-                            <>
-                                <IconButton component={Link} to="/cart" variant="soft" color="neutral">
-                                    <Badge badgeContent={cartCount} color="danger">
-                                        <ShoppingCartIcon />
-                                    </Badge>
-                                </IconButton>
                                 <IconButton
                                     onClick={handleProfileMenuOpen}
-                                    size="md"
+                                    size="sm"
                                     variant="soft"
                                     color="neutral"
                                     aria-label="account menu"
-                                    aria-controls={menuId}
+                                    sx={{ display: { sm: 'none' } }}
                                 >
-                                    <Avatar size="sm" variant="outlined">
-                                        {localStorage.getItem('username')?.charAt(0)?.toUpperCase() || 'U'}
-                                    </Avatar>
+                                    <AccountCircleIcon />
                                 </IconButton>
                             </>
                         )}
@@ -292,12 +456,99 @@ export default function Navbar() {
                 open={mobileOpen}
                 onClose={handleDrawerToggle}
                 ModalProps={{ keepMounted: true }}
-                sx={{ display: { xs: 'block', sm: 'none' } }}
+                sx={{ display: { xs: 'block', sm: 'none' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 250 } }}
             >
                 {drawer}
             </Drawer>
 
-            {renderMenu}
+            {/* Profile Menu - Using Popover instead of Menu for better positioning */}
+            <Popover
+                open={open}
+                anchorEl={anchorEl}
+                onClose={handleMenuClose}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+                sx={{
+                    mt: 1,
+                    '& .MuiPopover-paper': {
+                        boxShadow: '0px 5px 15px rgba(0,0,0,0.2)',
+                        borderRadius: '8px',
+                        minWidth: '200px'
+                    },
+                }}
+            >
+                {isLoggedIn ? (
+                    // Logged-in user menu
+                    <Box sx={{ p: 1 }}>
+                        <Box sx={{ p: 2, textAlign: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
+                            <Avatar
+                                size="md"
+                                variant="outlined"
+                                color="primary"
+                                sx={{ mx: 'auto', mb: 1 }}
+                            >
+                                {username?.charAt(0)?.toUpperCase() || 'U'}
+                            </Avatar>
+                            <Typography level="title-sm">{username}</Typography>
+                            {isAdmin && (
+                                <Typography level="body-xs" color="primary">Administrator</Typography>
+                            )}
+                        </Box>
+
+                        <MenuItem
+                            onClick={() => { handleMenuClose(); navigate('/profile'); }}
+                            sx={{ py: 1.5 }}
+                        >
+                            <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
+                            My Profile
+                        </MenuItem>
+
+                        {isAdmin && (
+                            <MenuItem
+                                onClick={() => { handleMenuClose(); navigate('/admin/dashboard'); }}
+                                sx={{ py: 1.5 }}
+                            >
+                                <DashboardIcon sx={{ mr: 1, fontSize: 20 }} />
+                                Admin Dashboard
+                            </MenuItem>
+                        )}
+
+                        <Divider />
+
+                        <MenuItem
+                            onClick={handleLogout}
+                            sx={{ py: 1.5, color: 'danger.500' }}
+                        >
+                            <LogoutIcon sx={{ mr: 1, fontSize: 20 }} />
+                            Sign Out
+                        </MenuItem>
+                    </Box>
+                ) : (
+                    // Guest user menu (mobile only)
+                    <Box sx={{ p: 1 }}>
+                        <MenuItem
+                            onClick={() => { handleMenuClose(); navigate('/signin'); }}
+                            sx={{ py: 1.5 }}
+                        >
+                            <AccountCircleIcon sx={{ mr: 1, fontSize: 20 }} />
+                            Sign In
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => { handleMenuClose(); navigate('/signup'); }}
+                            sx={{ py: 1.5 }}
+                        >
+                            <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
+                            Sign Up
+                        </MenuItem>
+                    </Box>
+                )}
+            </Popover>
         </>
     );
 }

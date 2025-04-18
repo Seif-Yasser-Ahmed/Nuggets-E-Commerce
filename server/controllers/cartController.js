@@ -35,7 +35,6 @@ exports.getCartCount = (req, res) => {
         FROM cart
         WHERE user_id = ?
     `;
-
     db.query(query, [userId], (err, results) => {
         if (err) {
             console.error('Error fetching cart count:', err);

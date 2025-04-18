@@ -2,5 +2,5 @@
 import API from './api';
 
 export const checkout = (checkoutData) => {
-    return API.post('/checkout', checkoutData);
+    return API.post('/orders', checkoutData);
 };

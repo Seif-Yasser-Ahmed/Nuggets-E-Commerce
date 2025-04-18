@@ -63,7 +63,7 @@ export const getCart = (userId) => {
 };
 
 export const getCartCount = (userId) => {
-    return axios.get(`${CART_API_URL}/count/${userId}`);
+    return API.get(`/cart/count/${userId}`);
 };
 
 export const updateCartItem = (cartItemId, updateData) => {

@@ -142,7 +142,7 @@ function Profile() {
                     date: order.created_at || order.date,
                     items: order.item_count || order.items || 0,
                     status: order.status || 'Processing',
-                    total: order.total || 0
+                    total: order.total_amount || 0
                 })));
             }
         } catch (error) {
@@ -896,6 +896,7 @@ function Profile() {
                                                                 {new Date(order.date).toLocaleDateString()}
                                                                 {' • '}
                                                                 {order.items} item{order.items !== 1 ? 's' : ''}
+                                                                {console.log(order)}
                                                             </Typography>
                                                             <Box sx={{
                                                                 display: 'flex',
