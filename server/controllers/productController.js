@@ -41,13 +41,35 @@ exports.getById = (req, res) => {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
 
-        // If specs is stored as a JSON string, parse it
+        // Parse JSON strings
         const product = results[0];
+        // Parse specs if stored as JSON string
         if (product.specs && typeof product.specs === 'string') {
             try {
                 product.specs = JSON.parse(product.specs);
             } catch (e) {
                 console.error('Error parsing product specs:', e);
+                product.specs = {};
+            }
+        }
+
+        // Parse colors if stored as JSON string
+        if (product.colors && typeof product.colors === 'string') {
+            try {
+                product.colors = JSON.parse(product.colors);
+            } catch (e) {
+                console.error('Error parsing product colors:', e);
+                product.colors = [];
+            }
+        }
+
+        // Parse sizes if stored as JSON string
+        if (product.sizes && typeof product.sizes === 'string') {
+            try {
+                product.sizes = JSON.parse(product.sizes);
+            } catch (e) {
+                console.error('Error parsing product sizes:', e);
+                product.sizes = [];
             }
         }
 
@@ -63,15 +85,38 @@ exports.getAll = (req, res) => {
             return res.status(500).json({ success: false, error: 'Error retrieving products' });
         }
 
-        // Parse specs JSON strings for all products
+        // Parse JSON strings for all products
         const products = results.map(product => {
+            // Parse specs if stored as JSON string
             if (product.specs && typeof product.specs === 'string') {
                 try {
                     product.specs = JSON.parse(product.specs);
                 } catch (e) {
                     console.error(`Error parsing specs for product ${product.id}:`, e);
+                    product.specs = {};
                 }
             }
+
+            // Parse colors if stored as JSON string
+            if (product.colors && typeof product.colors === 'string') {
+                try {
+                    product.colors = JSON.parse(product.colors);
+                } catch (e) {
+                    console.error(`Error parsing colors for product ${product.id}:`, e);
+                    product.colors = [];
+                }
+            }
+
+            // Parse sizes if stored as JSON string
+            if (product.sizes && typeof product.sizes === 'string') {
+                try {
+                    product.sizes = JSON.parse(product.sizes);
+                } catch (e) {
+                    console.error(`Error parsing sizes for product ${product.id}:`, e);
+                    product.sizes = [];
+                }
+            }
+
             return product;
         });
 
@@ -89,15 +134,38 @@ exports.getByCategory = (req, res) => {
             return res.status(500).json({ success: false, error: 'Error retrieving products by category' });
         }
 
-        // Parse specs JSON strings
+        // Parse JSON strings
         const products = results.map(product => {
+            // Parse specs if stored as JSON string
             if (product.specs && typeof product.specs === 'string') {
                 try {
                     product.specs = JSON.parse(product.specs);
                 } catch (e) {
                     console.error(`Error parsing specs for product ${product.id}:`, e);
+                    product.specs = {};
                 }
             }
+
+            // Parse colors if stored as JSON string
+            if (product.colors && typeof product.colors === 'string') {
+                try {
+                    product.colors = JSON.parse(product.colors);
+                } catch (e) {
+                    console.error(`Error parsing colors for product ${product.id}:`, e);
+                    product.colors = [];
+                }
+            }
+
+            // Parse sizes if stored as JSON string
+            if (product.sizes && typeof product.sizes === 'string') {
+                try {
+                    product.sizes = JSON.parse(product.sizes);
+                } catch (e) {
+                    console.error(`Error parsing sizes for product ${product.id}:`, e);
+                    product.sizes = [];
+                }
+            }
+
             return product;
         });
 
@@ -168,15 +236,38 @@ exports.getLowStock = (req, res) => {
             return res.status(500).json({ success: false, error: 'Error retrieving low stock products' });
         }
 
-        // Parse specs JSON strings
+        // Parse JSON strings
         const products = results.map(product => {
+            // Parse specs if stored as JSON string
             if (product.specs && typeof product.specs === 'string') {
                 try {
                     product.specs = JSON.parse(product.specs);
                 } catch (e) {
                     console.error(`Error parsing specs for product ${product.id}:`, e);
+                    product.specs = {};
                 }
             }
+
+            // Parse colors if stored as JSON string
+            if (product.colors && typeof product.colors === 'string') {
+                try {
+                    product.colors = JSON.parse(product.colors);
+                } catch (e) {
+                    console.error(`Error parsing colors for product ${product.id}:`, e);
+                    product.colors = [];
+                }
+            }
+
+            // Parse sizes if stored as JSON string
+            if (product.sizes && typeof product.sizes === 'string') {
+                try {
+                    product.sizes = JSON.parse(product.sizes);
+                } catch (e) {
+                    console.error(`Error parsing sizes for product ${product.id}:`, e);
+                    product.sizes = [];
+                }
+            }
+
             return product;
         });
 

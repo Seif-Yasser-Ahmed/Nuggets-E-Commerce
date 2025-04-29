@@ -2,12 +2,27 @@ const db = require('../db');
 
 module.exports = {
     createProduct: (product, callback) => {
-        const { name, description, price, category, image_url, stock, discount, specs } = product;
+        const { name, description, price, category, image_url, stock, discount, specs, colors, sizes } = product;
         const query = `
-            INSERT INTO product (name, description, price, category, image_url, stock, discount, specs)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO product (name, description, price, category, image_url, stock, discount, specs, colors, sizes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        db.query(query, [name, description, price, category, image_url, stock, discount, JSON.stringify(specs)], callback);
+        db.query(
+            query,
+            [
+                name,
+                description,
+                price,
+                category,
+                image_url,
+                stock,
+                discount,
+                JSON.stringify(specs || {}),
+                JSON.stringify(colors || []),
+                JSON.stringify(sizes || [])
+            ],
+            callback
+        );
     },
 
     getProductById: (id, callback) => {
@@ -26,16 +41,28 @@ module.exports = {
     },
 
     updateProduct: (id, product, callback) => {
-        const { name, description, price, category, image_url, stock, discount, specs } = product;
+        const { name, description, price, category, image_url, stock, discount, specs, colors, sizes } = product;
         const query = `
             UPDATE product 
             SET name = ?, description = ?, price = ?, category = ?, 
-                image_url = ?, stock = ?, discount = ?, specs = ?
+                image_url = ?, stock = ?, discount = ?, specs = ?, colors = ?, sizes = ?
             WHERE id = ?
         `;
         db.query(
             query,
-            [name, description, price, category, image_url, stock, discount, JSON.stringify(specs), id],
+            [
+                name,
+                description,
+                price,
+                category,
+                image_url,
+                stock,
+                discount,
+                JSON.stringify(specs || {}),
+                JSON.stringify(colors || []),
+                JSON.stringify(sizes || []),
+                id
+            ],
             callback
         );
     },

@@ -32,7 +32,7 @@ import { getCart, updateCartItem, removeCartItem, getGuestCart, saveGuestCart } 
 
 const Cart = () => {
     const navigate = useNavigate();
-    const { isDarkMode } = useTheme();
+    const { darkMode } = useTheme();
     const [cartItems, setCartItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -315,7 +315,7 @@ const Cart = () => {
 
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Typography level="h2" sx={{ mb: 4 }}>Your Shopping Cart</Typography>
+            <Typography level="h2" sx={{ mb: 4, color: darkMode ? 'primary.300' : 'neutral.800' }}>Your Shopping Cart</Typography>
 
             {!isLoggedIn && (
                 <Alert
@@ -341,7 +341,7 @@ const Cart = () => {
             <Grid container spacing={4}>
                 {/* Cart Items List */}
                 <Grid xs={12} md={8}>
-                    <Card variant={isDarkMode ? 'soft' : 'outlined'} sx={{ mb: { xs: 3, md: 0 } }}>
+                    <Card variant={darkMode ? 'soft' : 'outlined'} sx={{ mb: { xs: 3, md: 0 } }}>
                         <CardContent>
                             <Typography level="title-lg" sx={{ mb: 2 }}>
                                 Items ({cartItems.length})
@@ -371,7 +371,7 @@ const Cart = () => {
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
-                                                        bgcolor: isDarkMode ? 'neutral.800' : 'neutral.100',
+                                                        bgcolor: darkMode ? 'neutral.800' : 'neutral.100',
                                                         color: 'neutral.500'
                                                     }}
                                                 >
@@ -391,7 +391,7 @@ const Cart = () => {
                                                 <Typography level="title-md">{item.name}</Typography>
                                                 <Typography
                                                     level="title-md"
-                                                    sx={{ fontWeight: 'bold', color: isDarkMode ? 'primary.300' : 'primary.500' }}
+                                                    sx={{ fontWeight: 'bold', color: darkMode ? 'primary.300' : 'primary.500' }}
                                                 >
                                                     {(item.price * item.quantity).toLocaleString()} {item.currency || 'EGP'}
                                                 </Typography>
@@ -512,31 +512,67 @@ const Cart = () => {
 
                 {/* Order Summary */}
                 <Grid xs={12} md={4}>
-                    <Card variant={isDarkMode ? 'soft' : 'solid'} sx={{ position: { md: 'sticky' }, top: { md: '80px' } }}>
+                    <Card
+                        variant={darkMode ? 'soft' : 'solid'}
+                        sx={{
+                            position: { md: 'sticky' },
+                            top: { md: '80px' },
+                            bgcolor: darkMode ? 'neutral.800' : 'primary.50',
+                            borderLeft: '4px solid',
+                            borderColor: darkMode ? 'primary.700' : 'primary.300',
+                            boxShadow: darkMode ? '0 4px 12px rgba(0,0,0,0.25)' : '0 4px 12px rgba(0,0,0,0.08)'
+                        }}
+                    >
                         <CardContent>
-                            <Typography level="title-lg" sx={{ mb: 3 }}>
+                            <Typography
+                                level="title-lg"
+                                sx={{
+                                    mb: 3,
+                                    color: darkMode ? 'primary.200' : 'primary.600',
+                                    fontWeight: 'bold'
+                                }}
+                            >
                                 Order Summary
                             </Typography>
 
                             <Stack spacing={2}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography>Subtotal</Typography>
-                                    <Typography>{subtotal.toLocaleString()} EGP</Typography>
+                                    <Typography sx={{ color: darkMode ? 'primary.300' : 'neutral.800' }}>Subtotal</Typography>
+                                    <Typography sx={{ color: darkMode ? 'primary.200' : 'neutral.800', fontWeight: 'medium' }}>
+                                        {subtotal.toLocaleString()} EGP
+                                    </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography>Shipping</Typography>
-                                    <Typography>{shipping.toLocaleString()} EGP</Typography>
+                                    <Typography sx={{ color: darkMode ? 'primary.300' : 'neutral.800' }}>Shipping</Typography>
+                                    <Typography sx={{ color: darkMode ? 'primary.200' : 'neutral.800', fontWeight: 'medium' }}>
+                                        {shipping.toLocaleString()} EGP
+                                    </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography>Tax (14%)</Typography>
-                                    <Typography>{tax.toLocaleString()} EGP</Typography>
+                                    <Typography sx={{ color: darkMode ? 'primary.300' : 'neutral.800' }}>Tax (14%)</Typography>
+                                    <Typography sx={{ color: darkMode ? 'primary.200' : 'neutral.800', fontWeight: 'medium' }}>
+                                        {tax.toLocaleString()} EGP
+                                    </Typography>
                                 </Box>
 
-                                <Divider />
+                                <Divider sx={{ bgcolor: darkMode ? 'neutral.700' : 'neutral.200' }} />
 
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Typography level="title-md">Total</Typography>
-                                    <Typography level="title-md">{total.toLocaleString()} EGP</Typography>
+                                    <Typography
+                                        level="title-md"
+                                        sx={{ color: darkMode ? 'primary.200' : 'primary.600' }}
+                                    >
+                                        Total
+                                    </Typography>
+                                    <Typography
+                                        level="title-md"
+                                        sx={{
+                                            color: darkMode ? 'primary.200' : 'primary.600',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        {total.toLocaleString()} EGP
+                                    </Typography>
                                 </Box>
 
                                 <Button
@@ -544,13 +580,27 @@ const Cart = () => {
                                     size="lg"
                                     fullWidth
                                     onClick={handleCheckout}
-                                    sx={{ mt: 2 }}
+                                    sx={{
+                                        mt: 2,
+                                        fontWeight: 'bold',
+                                        bgcolor: darkMode ? 'primary.600' : 'primary.500',
+                                        '&:hover': {
+                                            bgcolor: darkMode ? 'primary.500' : 'primary.400',
+                                        }
+                                    }}
                                 >
                                     {isLoggedIn ? 'Proceed to Checkout' : 'Sign in to Checkout'}
                                 </Button>
 
                                 {!isLoggedIn && (
-                                    <Typography level="body-sm" sx={{ mt: 1, textAlign: 'center', color: 'neutral.500' }}>
+                                    <Typography
+                                        level="body-sm"
+                                        sx={{
+                                            mt: 1,
+                                            textAlign: 'center',
+                                            color: darkMode ? 'neutral.300' : 'neutral.500'
+                                        }}
+                                    >
                                         You'll need to sign in before checkout
                                     </Typography>
                                 )}

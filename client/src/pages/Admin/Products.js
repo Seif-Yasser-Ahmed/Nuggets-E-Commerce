@@ -27,14 +27,19 @@ import {
     Chip,
     Alert,
     Snackbar,
-    InputAdornment
+    InputAdornment,
+    Switch,
+    FormControlLabel,
+    Divider
 } from '@mui/material';
 import {
     Add as AddIcon,
     Edit as EditIcon,
     Delete as DeleteIcon,
     Search as SearchIcon,
-    InventoryRounded
+    InventoryRounded,
+    FormatColorFill as ColorIcon,
+    Straighten as SizeIcon
 } from '@mui/icons-material';
 import API from '../../services/api';
 
@@ -48,6 +53,8 @@ const Products = () => {
     const [currentProduct, setCurrentProduct] = useState(null);
     const [categories, setCategories] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [newCategoryDialogOpen, setNewCategoryDialogOpen] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
     const [snackbar, setSnackbar] = useState({
         open: false,
         message: '',
@@ -63,11 +70,15 @@ const Products = () => {
         image_url: '',
         stock: '',
         discount: '0',
-        specs: {}
+        specs: {},
+        hasColors: false,
+        hasSizes: false,
     });
 
-    // Specs state (for dynamic form fields)
+    // Specs, Colors, and Sizes state (for dynamic form fields)
     const [specs, setSpecs] = useState([{ key: '', value: '' }]);
+    const [colors, setColors] = useState([{ name: '', value: '' }]);
+    const [sizes, setSizes] = useState(['']);
 
     // Load products and categories
     useEffect(() => {
@@ -108,6 +119,15 @@ const Products = () => {
         });
     };
 
+    // Handle toggle changes
+    const handleToggleChange = (e) => {
+        const { name, checked } = e.target;
+        setFormData({
+            ...formData,
+            [name]: checked
+        });
+    };
+
     // Handle spec changes
     const handleSpecChange = (index, field, value) => {
         const newSpecs = [...specs];
@@ -124,6 +144,38 @@ const Products = () => {
         setSpecs(newSpecs);
     };
 
+    // Handle color changes
+    const handleColorChange = (index, field, value) => {
+        const newColors = [...colors];
+        newColors[index][field] = value;
+        setColors(newColors);
+    };
+
+    const addColorField = () => {
+        setColors([...colors, { name: '', value: '' }]);
+    };
+
+    const removeColorField = (index) => {
+        const newColors = colors.filter((_, i) => i !== index);
+        setColors(newColors);
+    };
+
+    // Handle size changes
+    const handleSizeChange = (index, value) => {
+        const newSizes = [...sizes];
+        newSizes[index] = value;
+        setSizes(newSizes);
+    };
+
+    const addSizeField = () => {
+        setSizes([...sizes, '']);
+    };
+
+    const removeSizeField = (index) => {
+        const newSizes = sizes.filter((_, i) => i !== index);
+        setSizes(newSizes);
+    };
+
     // Open dialog for adding a new product
     const handleAddProduct = () => {
         setIsEditing(false);
@@ -135,9 +187,13 @@ const Products = () => {
             image_url: '',
             stock: '',
             discount: '0',
-            specs: {}
+            specs: {},
+            hasColors: false,
+            hasSizes: false,
         });
         setSpecs([{ key: '', value: '' }]);
+        setColors([{ name: '', value: '' }]);
+        setSizes(['']);
         setDialogOpen(true);
     };
 
@@ -147,11 +203,25 @@ const Products = () => {
         setCurrentProduct(product);
 
         // Convert specs object to array for form
-        const specsArray = product.specs
+        const specsArray = product.specs && Object.keys(product.specs).length
             ? Object.entries(product.specs).map(([key, value]) => ({ key, value }))
             : [{ key: '', value: '' }];
 
+        // Setup colors array
+        const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
+        const colorsArray = hasColors
+            ? product.colors
+            : [{ name: '', value: '' }];
+
+        // Setup sizes array
+        const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
+        const sizesArray = hasSizes
+            ? product.sizes
+            : [''];
+
         setSpecs(specsArray);
+        setColors(colorsArray);
+        setSizes(sizesArray);
 
         setFormData({
             name: product.name,
@@ -161,7 +231,9 @@ const Products = () => {
             image_url: product.image_url,
             stock: product.stock,
             discount: product.discount || 0,
-            specs: product.specs || {}
+            specs: product.specs || {},
+            hasColors: hasColors,
+            hasSizes: hasSizes,
         });
 
         setDialogOpen(true);
@@ -203,9 +275,20 @@ const Products = () => {
             }
         });
 
+        // Filter out empty colors and sizes
+        const filteredColors = formData.hasColors
+            ? colors.filter(color => color.name.trim() && color.value.trim())
+            : [];
+
+        const filteredSizes = formData.hasSizes
+            ? sizes.filter(size => size.trim())
+            : [];
+
         const productData = {
             ...formData,
-            specs: specsObject
+            specs: specsObject,
+            colors: filteredColors,
+            sizes: filteredSizes
         };
 
         try {
@@ -248,6 +331,32 @@ const Products = () => {
     // Close snackbar
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
+    };
+
+    // Add new category
+    const handleAddCategory = () => {
+        if (!newCategoryName.trim()) return;
+
+        // Add the new category to the categories list
+        const updatedCategories = [...categories, newCategoryName.trim()];
+        setCategories(updatedCategories);
+
+        // Update the form to use the new category
+        setFormData({
+            ...formData,
+            category: newCategoryName.trim()
+        });
+
+        // Close the dialog and reset the input
+        setNewCategoryDialogOpen(false);
+        setNewCategoryName('');
+
+        // Show success message
+        setSnackbar({
+            open: true,
+            message: 'Category added successfully',
+            severity: 'success'
+        });
     };
 
     return (
@@ -312,6 +421,7 @@ const Products = () => {
                                 <TableCell>Price</TableCell>
                                 <TableCell>Stock</TableCell>
                                 <TableCell>Discount</TableCell>
+                                <TableCell>Variants</TableCell>
                                 <TableCell>Actions</TableCell>
                             </TableRow>
                         </TableHead>
@@ -379,6 +489,26 @@ const Products = () => {
                                             ) : 'None'}
                                         </TableCell>
                                         <TableCell>
+                                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                                {Array.isArray(product.colors) && product.colors.length > 0 && (
+                                                    <Chip
+                                                        icon={<ColorIcon />}
+                                                        label={`${product.colors.length} colors`}
+                                                        size="small"
+                                                        color="info"
+                                                    />
+                                                )}
+                                                {Array.isArray(product.sizes) && product.sizes.length > 0 && (
+                                                    <Chip
+                                                        icon={<SizeIcon />}
+                                                        label={`${product.sizes.length} sizes`}
+                                                        size="small"
+                                                        color="success"
+                                                    />
+                                                )}
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell>
                                             <IconButton
                                                 color="primary"
                                                 onClick={() => handleEditProduct(product)}
@@ -398,7 +528,7 @@ const Products = () => {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={7} align="center">
+                                    <TableCell colSpan={8} align="center">
                                         No products found
                                     </TableCell>
                                 </TableRow>
@@ -439,7 +569,13 @@ const Products = () => {
                                     <Select
                                         name="category"
                                         value={formData.category}
-                                        onChange={handleChange}
+                                        onChange={(e) => {
+                                            if (e.target.value === "new") {
+                                                setNewCategoryDialogOpen(true);
+                                            } else {
+                                                handleChange(e);
+                                            }
+                                        }}
                                         label="Category"
                                     >
                                         {categories.map((category) => (
@@ -546,9 +682,145 @@ const Products = () => {
                                 />
                             </Grid>
 
+                            {/* Product Variants Section */}
+                            <Grid item xs={12}>
+                                <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                                    Product Variants
+                                </Typography>
+
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                name="hasColors"
+                                                checked={formData.hasColors}
+                                                onChange={handleToggleChange}
+                                            />
+                                        }
+                                        label="This product has color variants"
+                                    />
+
+                                    {formData.hasColors && (
+                                        <Box sx={{ ml: 4, mt: 1 }}>
+                                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                                Colors
+                                            </Typography>
+
+                                            {colors.map((color, index) => (
+                                                <Box
+                                                    key={index}
+                                                    sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        mb: 2,
+                                                        gap: 2
+                                                    }}
+                                                >
+                                                    <TextField
+                                                        label="Color Name"
+                                                        value={color.name}
+                                                        onChange={(e) => handleColorChange(index, 'name', e.target.value)}
+                                                        sx={{ flex: 1 }}
+                                                        placeholder="e.g., Black, Red, Blue"
+                                                    />
+                                                    <TextField
+                                                        label="Color Value"
+                                                        value={color.value}
+                                                        onChange={(e) => handleColorChange(index, 'value', e.target.value)}
+                                                        sx={{ flex: 1 }}
+                                                        placeholder="e.g., #000000"
+                                                    />
+                                                    <Box
+                                                        sx={{
+                                                            width: 30,
+                                                            height: 30,
+                                                            bgcolor: color.value || '#CCCCCC',
+                                                            borderRadius: '4px',
+                                                            border: '1px solid #ddd'
+                                                        }}
+                                                    />
+                                                    <IconButton
+                                                        onClick={() => removeColorField(index)}
+                                                        disabled={colors.length === 1}
+                                                    >
+                                                        <DeleteIcon />
+                                                    </IconButton>
+                                                </Box>
+                                            ))}
+
+                                            <Button
+                                                startIcon={<AddIcon />}
+                                                onClick={addColorField}
+                                                variant="outlined"
+                                                size="small"
+                                                sx={{ mt: 1 }}
+                                            >
+                                                Add Color
+                                            </Button>
+                                        </Box>
+                                    )}
+
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                name="hasSizes"
+                                                checked={formData.hasSizes}
+                                                onChange={handleToggleChange}
+                                            />
+                                        }
+                                        label="This product has size variants"
+                                    />
+
+                                    {formData.hasSizes && (
+                                        <Box sx={{ ml: 4, mt: 1 }}>
+                                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                                Sizes
+                                            </Typography>
+
+                                            {sizes.map((size, index) => (
+                                                <Box
+                                                    key={index}
+                                                    sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        mb: 2,
+                                                        gap: 2
+                                                    }}
+                                                >
+                                                    <TextField
+                                                        label="Size"
+                                                        value={size}
+                                                        onChange={(e) => handleSizeChange(index, e.target.value)}
+                                                        sx={{ flex: 1 }}
+                                                        placeholder="e.g., S, M, L, XL"
+                                                    />
+                                                    <IconButton
+                                                        onClick={() => removeSizeField(index)}
+                                                        disabled={sizes.length === 1}
+                                                    >
+                                                        <DeleteIcon />
+                                                    </IconButton>
+                                                </Box>
+                                            ))}
+
+                                            <Button
+                                                startIcon={<AddIcon />}
+                                                onClick={addSizeField}
+                                                variant="outlined"
+                                                size="small"
+                                                sx={{ mt: 1 }}
+                                            >
+                                                Add Size
+                                            </Button>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Grid>
+
                             {/* Specifications */}
                             <Grid item xs={12}>
-                                <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
+                                <Divider sx={{ my: 2 }} />
+                                <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                                     Product Specifications
                                 </Typography>
 
@@ -617,6 +889,41 @@ const Products = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
+
+            {/* New Category Dialog */}
+            <Dialog
+                open={newCategoryDialogOpen}
+                onClose={() => setNewCategoryDialogOpen(false)}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle>Add New Category</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ pt: 1 }}>
+                        <TextField
+                            autoFocus
+                            label="Category Name"
+                            fullWidth
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            variant="outlined"
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setNewCategoryDialogOpen(false)}>
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleAddCategory}
+                        disabled={!newCategoryName.trim()}
+                    >
+                        Add Category
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

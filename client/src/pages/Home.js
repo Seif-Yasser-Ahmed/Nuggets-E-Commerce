@@ -195,6 +195,7 @@ export default function Home() {
                                 left: 0,
                                 width: '100%',
                                 height: '100%',
+                                color: darkMode ? 'primary.300' : 'neutral.800',
                                 opacity: activeSlide === index ? 1 : 0,
                                 transition: 'opacity 0.5s ease-in-out',
                                 background: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)), url(${item.image})`,
@@ -313,7 +314,7 @@ export default function Home() {
                         }}>
                             <CardContent sx={{ textAlign: 'center' }}>
                                 <NewReleasesIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-                                <Typography level="title-md">New Arrivals</Typography>
+                                <Typography level="title-md" >New Arrivals</Typography>
                             </CardContent>
                         </Card>
                     </Grid>
@@ -397,14 +398,22 @@ export default function Home() {
                             return (
                                 <Grid key={product.id} xs={12} sm={6} md={4} lg={3} sx={{ mb: 3 }}>
                                     <Box ref={lastProductElementRef}>
-                                        <ProductCard product={product} />
+                                        <ProductCard product={{
+                                            ...product,
+                                            // Map image_url to image property expected by ProductCard
+                                            image: product.image_url
+                                        }} />
                                     </Box>
                                 </Grid>
                             );
                         } else {
                             return (
                                 <Grid key={product.id} xs={12} sm={6} md={4} lg={3} sx={{ mb: 3 }}>
-                                    <ProductCard product={product} />
+                                    <ProductCard product={{
+                                        ...product,
+                                        // Map image_url to image property expected by ProductCard
+                                        image: product.image_url
+                                    }} />
                                 </Grid>
                             );
                         }

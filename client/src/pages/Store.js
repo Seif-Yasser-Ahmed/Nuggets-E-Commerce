@@ -33,7 +33,7 @@ import { getProducts } from '../services/productService';
 import ProductCard from '../components/ProductCard';
 
 const Store = () => {
-    const { isDarkMode } = useTheme();
+    const { darkMode } = useTheme();
     const [products, setProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -69,10 +69,13 @@ const Store = () => {
                 const allCategories = [...new Set(productData.map(product => product.category))];
                 setCategories(allCategories);
 
-                // Find maximum price for range slider
-                const highestPrice = Math.max(...productData.map(product => product.price));
-                setMaxPrice(highestPrice > 0 ? Math.ceil(highestPrice / 1000) * 1000 : 10000);
-                setPriceRange([0, highestPrice > 0 ? Math.ceil(highestPrice / 1000) * 1000 : 10000]);
+                // Find minimum and maximum prices for range slider
+                const prices = productData.map(product => product.price).filter(price => price !== undefined);
+                const minPrice = Math.min(...prices);
+                const maxPrice = Math.max(...prices);
+
+                setMaxPrice(maxPrice);
+                setPriceRange([minPrice, maxPrice]);
 
                 // Apply initial filters
                 setFilteredProducts(productData);
@@ -188,7 +191,7 @@ const Store = () => {
                 alignItems: { xs: 'start', sm: 'center' },
                 mb: 4
             }}>
-                <Typography level="h3" sx={{ mb: { xs: 2, sm: 0 } }}>
+                <Typography level="h3" sx={{ mb: { xs: 2, sm: 0 }, color: darkMode ? 'primary.300' : 'neutral.800' }}>
                     Browse Products
                 </Typography>
 

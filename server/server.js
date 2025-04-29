@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
 dotenv.config();
 
@@ -21,9 +22,15 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // app.use('/api/v1/reset', resetRoutes);
 // Public routes
 app.use('/api/v1/users', authRoutes);
+
+// Protected/user routes
+app.use('/api/v1/users', userRoutes);
 
 // Protected/user routes
 app.use('/api/v1/users', userRoutes);

@@ -88,14 +88,33 @@ function Profile() {
             try {
                 setLoading(true);
                 const response = await getProfile(storedUserId);
+                console.log("Profile data from server:", response.data.data);
+
+                // Get API base URL from the API service
+                const apiBaseUrl = API.defaults.baseURL || '';
+
+                // Ensure the profile image path is properly constructed
+                const profileImagePath = response.data.data.personal_image || '';
+
+                // Construct the full image URL - using the API base URL since that's where the uploads are served from
+                // For images that start with "/uploads/", we need to ensure they get the proper API base URL
+                const fullProfileImage = profileImagePath.startsWith('http')
+                    ? profileImagePath
+                    : profileImagePath && profileImagePath.startsWith('/')
+                        ? `${apiBaseUrl}${profileImagePath}`
+                        : profileImagePath
+                            ? `${apiBaseUrl}/${profileImagePath}`
+                            : '';
+
+                console.log("Full profile image URL:", fullProfileImage);
 
                 const userData = {
                     ...response.data.data,
                     firstName: response.data.data.first_name || 'John',
                     lastName: response.data.data.last_name || 'Doe',
                     email: response.data.data.email || '',
-                    profileImage: response.data.data.profile_image,
-                    phone: response.data.data.phone || '',
+                    profileImage: fullProfileImage,
+                    phone: response.data.data.telephone || '',
                     location: response.data.data.location || '',
                     bio: response.data.data.bio || 'No bio information provided.',
                     occupation: response.data.data.occupation || '',
@@ -108,6 +127,7 @@ function Profile() {
                 setUser(userData);
                 setEditedUser(userData);
 
+                // Parse social links
                 const userSocialLinks = response.data.data.social_links || {};
                 setSocialLinks({
                     website: userSocialLinks.website || '',
@@ -216,6 +236,18 @@ function Profile() {
     const handleSaveProfile = async () => {
         try {
             const storedUserId = localStorage.getItem('userId');
+
+            // Format birthday properly if it exists
+            let formattedBirthday = null;
+            if (editedUser.birthday) {
+                // Check if the birthday already has the ISO format with 'T'
+                if (editedUser.birthday.includes('T')) {
+                    formattedBirthday = editedUser.birthday.split('T')[0]; // Extract just the date part
+                } else {
+                    formattedBirthday = editedUser.birthday;
+                }
+            }
+
             const profileData = {
                 first_name: editedUser.firstName,
                 last_name: editedUser.lastName,
@@ -224,7 +256,7 @@ function Profile() {
                 location: editedUser.location,
                 bio: editedUser.bio,
                 occupation: editedUser.occupation,
-                birthday: editedUser.birthday
+                birthday: formattedBirthday
             };
 
             await API.put(`/users/${storedUserId}`, profileData);
@@ -239,7 +271,7 @@ function Profile() {
                 location: editedUser.location,
                 bio: editedUser.bio,
                 occupation: editedUser.occupation,
-                birthday: editedUser.birthday
+                birthday: formattedBirthday
             });
 
             setIsEditing(false);
@@ -275,17 +307,33 @@ function Profile() {
                 const formData = new FormData();
                 formData.append('image', file);
 
-                await API.post(`/users/${storedUserId}/profile-image`, formData);
+                const response = await API.post(`/users/${storedUserId}/profile-image`, formData);
+
+                // Get the server URL for the saved image
+                const serverImageUrl = response.data.data.imageUrl;
+
+                // Get API base URL from the API service
+                const apiBaseUrl = API.defaults.baseURL || '';
+
+                // Construct full URL to the image with API base URL
+                // For images that start with "/uploads/", we need to ensure they get the proper API base URL
+                const fullImageUrl = serverImageUrl.startsWith('http')
+                    ? serverImageUrl
+                    : serverImageUrl && serverImageUrl.startsWith('/')
+                        ? `${apiBaseUrl}${serverImageUrl}`
+                        : `${apiBaseUrl}/${serverImageUrl}`;
+
+                console.log("New profile image URL:", fullImageUrl);
 
                 setEditedUser({
                     ...editedUser,
-                    profileImage: event.target.result
+                    profileImage: fullImageUrl
                 });
 
                 if (!isEditing) {
                     setUser({
                         ...user,
-                        profileImage: event.target.result
+                        profileImage: fullImageUrl
                     });
                 }
 
@@ -415,8 +463,9 @@ function Profile() {
                         >
                             <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <Box sx={{ position: 'relative', mb: 2 }}>
+                                    {console.log("Profile image URL being used:", isEditing ? editedUser.profileImage : user.profileImage)}
                                     <Avatar
-                                        src={isEditing ? editedUser.profileImage : (user.profileImage || '')}
+                                        src={isEditing ? editedUser.profileImage : user.profileImage}
                                         alt={user.username}
                                         sx={{
                                             width: 120,
@@ -427,7 +476,7 @@ function Profile() {
                                             fontSize: '48px'
                                         }}
                                     >
-                                        {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
+                                        {user.username ? user.username.charAt(0).toLowerCase() : 's'}
                                     </Avatar>
                                     {(isEditing || !user.profileImage) && (
                                         <IconButton
@@ -682,6 +731,7 @@ function Profile() {
                                         <>
                                             <Grid xs={12} sm={6}>
                                                 <Input
+                                                    sx={{ bgcolor: darkMode ? 'neutral.800' : 'default' }}
                                                     name="website"
                                                     label="Website"
                                                     value={socialLinks.website || ''}
@@ -694,6 +744,7 @@ function Profile() {
                                             </Grid>
                                             <Grid xs={12} sm={6}>
                                                 <Input
+                                                    sx={{ bgcolor: darkMode ? 'neutral.800' : 'default' }}
                                                     name="github"
                                                     label="GitHub"
                                                     value={socialLinks.github || ''}
@@ -706,6 +757,7 @@ function Profile() {
                                             </Grid>
                                             <Grid xs={12} sm={6}>
                                                 <Input
+                                                    sx={{ bgcolor: darkMode ? 'neutral.800' : 'default' }}
                                                     name="linkedin"
                                                     label="LinkedIn"
                                                     value={socialLinks.linkedin || ''}
@@ -718,6 +770,7 @@ function Profile() {
                                             </Grid>
                                             <Grid xs={12} sm={6}>
                                                 <Input
+                                                    sx={{ bgcolor: darkMode ? 'neutral.800' : 'default' }}
                                                     name="twitter"
                                                     label="Twitter"
                                                     value={socialLinks.twitter || ''}
@@ -730,6 +783,7 @@ function Profile() {
                                             </Grid>
                                             <Grid xs={12} sm={6}>
                                                 <Input
+                                                    sx={{ bgcolor: darkMode ? 'neutral.800' : 'default' }}
                                                     name="instagram"
                                                     label="Instagram"
                                                     value={socialLinks.instagram || ''}
@@ -742,6 +796,7 @@ function Profile() {
                                             </Grid>
                                             <Grid xs={12} sm={6}>
                                                 <Input
+                                                    sx={{ bgcolor: darkMode ? 'neutral.800' : 'default' }}
                                                     name="facebook"
                                                     label="Facebook"
                                                     value={socialLinks.facebook || ''}
@@ -777,15 +832,22 @@ function Profile() {
                                                 value && (
                                                     <Grid xs={6} sm={4} md={2} key={key}>
                                                         <a
-                                                            href={value}
+                                                            href={value.startsWith('http') ? value : `https://${value}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            style={{ textDecoration: 'none' }}
+                                                            style={{ textDecoration: 'none', display: 'block', width: '100%' }}
                                                         >
                                                             <Button
                                                                 variant="soft"
-                                                                color={darkMode ? 'primary' : 'neutral'}
+                                                                color={darkMode ? 'neutral.600' : 'neutral'}
                                                                 fullWidth
+                                                                sx={{
+                                                                    transition: 'all 0.2s ease',
+                                                                    '&:hover': {
+                                                                        transform: 'translateY(-2px)',
+                                                                        boxShadow: darkMode ? '0 4px 8px rgba(0,0,0,0.5)' : '0 4px 8px rgba(0,0,0,0.1)'
+                                                                    }
+                                                                }}
                                                                 startDecorator={
                                                                     key === 'website' ? <WebsiteIcon /> :
                                                                         key === 'github' ? <GitHubIcon /> :
@@ -818,11 +880,11 @@ function Profile() {
 
                         {/* Activity Tabs */}
                         <Card sx={{
-                            bgcolor: darkMode ? 'neutral.800' : 'white',
+                            bgcolor: darkMode ? 'neutral.700' : 'neutral',
                             color: darkMode ? 'white' : 'inherit'
                         }}>
                             <Tabs value={activeTab} onChange={(_, val) => setActiveTab(val)} sx={{ borderRadius: 'lg' }}>
-                                <TabList sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+                                <TabList sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: darkMode ? 'neutral.800' : 'white' }}>
                                     <Tab
                                         variant={activeTab === 0 ? "soft" : "plain"}
                                         color={activeTab === 0 ? "primary" : darkMode ? "neutral" : "neutral"}
@@ -852,7 +914,7 @@ function Profile() {
                                     </Tab>
                                 </TabList>
 
-                                <TabPanel value={0} sx={{ p: 2 }}>
+                                <TabPanel value={0} sx={{ p: 2, bgcolor: darkMode ? 'neutral.900' : 'white' }}>
                                     <Typography level="title-md" sx={{ mb: 2, color: darkMode ? 'white' : 'inherit' }}>Recent Orders</Typography>
                                     {ordersLoading ? (
                                         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -929,7 +991,7 @@ function Profile() {
                                     )}
                                 </TabPanel>
 
-                                <TabPanel value={1} sx={{ p: 2 }}>
+                                <TabPanel value={1} sx={{ p: 2, bgcolor: darkMode ? 'neutral.900' : 'white' }}>
                                     <Typography level="title-md" sx={{ mb: 2, color: darkMode ? 'white' : 'inherit' }}>Your Wishlist</Typography>
                                     {wishlistLoading ? (
                                         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -1007,7 +1069,7 @@ function Profile() {
                                     )}
                                 </TabPanel>
 
-                                <TabPanel value={2} sx={{ p: 2 }}>
+                                <TabPanel value={2} sx={{ p: 2, bgcolor: darkMode ? 'neutral.900' : 'white' }}>
                                     <Typography level="title-md" sx={{ mb: 3, color: darkMode ? 'white' : 'inherit' }}>Account Settings</Typography>
 
                                     <Box sx={{ mb: 4 }}>
@@ -1015,6 +1077,7 @@ function Profile() {
                                         <Grid container spacing={2}>
                                             <Grid xs={12}>
                                                 <Input
+                                                    sx={{ bgcolor: darkMode ? 'neutral.800' : 'default' }}
                                                     type="password"
                                                     label="Current Password"
                                                     size="sm"
@@ -1023,6 +1086,7 @@ function Profile() {
                                             </Grid>
                                             <Grid xs={12} sm={6}>
                                                 <Input
+                                                    sx={{ bgcolor: darkMode ? 'neutral.800' : 'default' }}
                                                     type="password"
                                                     label="New Password"
                                                     size="sm"
@@ -1031,6 +1095,7 @@ function Profile() {
                                             </Grid>
                                             <Grid xs={12} sm={6}>
                                                 <Input
+                                                    sx={{ bgcolor: darkMode ? 'neutral.800' : 'default' }}
                                                     type="password"
                                                     label="Confirm New Password"
                                                     size="sm"

@@ -7,7 +7,99 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root {
+  /* Default light mode variables */
+  --color-background: #F5F5F5;
+  --color-surface: #FFFFFF;
+  --color-primary: #1976D2;
+  --color-secondary: #673AB7;
+  --color-text: #212121;
+  --color-textSecondary: #757575;
+  --color-divider: #EEEEEE;
+  --color-error: #D32F2F;
+  --color-success: #388E3C;
+  --color-warning: #F57C00;
+  --color-info: #1976D2;
+  --color-hover: rgba(0, 0, 0, 0.04);
+  --color-active: rgba(0, 0, 0, 0.08);
+  --color-card: #FFFFFF;
+  --color-input: #F5F5F5;
+  --color-border: #E0E0E0;
+  --color-elevation: 0px 2px 4px rgba(0, 0, 0, 0.1);
+
+  /* Transition properties */
+  --transition-color: color 0.2s ease;
+  --transition-background: background-color 0.2s ease;
+  --transition-border: border-color 0.2s ease;
+  --transition-shadow: box-shadow 0.2s ease;
+  --transition-all: all 0.2s ease;
+}
+
+.dark {
+  /* Dark mode variables */
+  --color-background: #121212;
+  --color-surface: #1E1E1E;
+  --color-primary: #90CAF9;
+  --color-secondary: #B39DDB;
+  --color-text: #FFFFFF;
+  --color-textSecondary: #B0B0B0;
+  --color-divider: #2D2D2D;
+  --color-error: #CF6679;
+  --color-success: #4CAF50;
+  --color-warning: #FFCA28;
+  --color-info: #64B5F6;
+  --color-hover: rgba(255, 255, 255, 0.08);
+  --color-active: rgba(255, 255, 255, 0.12);
+  --color-card: #1F1F1F;
+  --color-input: #2D2D2D;
+  --color-border: #333333;
+  --color-elevation: 0px 4px 8px rgba(0, 0, 0, 0.5);
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 /* @import "flowbite"; */
+
+/* Modern dark mode transitions */
+* {
+  transition: var(--transition-color), var(--transition-background), var(--transition-border), var(--transition-shadow);
+}
+
+/* Enhanced form inputs for both dark and light mode */
+.form-input {
+  @apply w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1;
+  background-color: var(--color-input);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.dark .form-input {
+  @apply focus:ring-blue-500 focus:border-blue-500;
+}
+
+/* Enhanced buttons for both dark and light mode */
+.btn {
+  @apply px-4 py-2 rounded-md font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-1;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  filter: brightness(110%);
+}
+
+.dark .btn-primary:hover {
+  filter: brightness(120%);
+}
+
+/* Card styling */
+.card {
+  background-color: var(--color-card);
+  color: var(--color-text);
+  border-radius: 0.5rem;
+  box-shadow: var(--color-elevation);
+}

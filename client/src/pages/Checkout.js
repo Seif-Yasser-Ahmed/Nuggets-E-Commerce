@@ -42,7 +42,7 @@ import { checkout } from '../services/checkoutService';
 
 const Checkout = () => {
     const navigate = useNavigate();
-    const { isDarkMode } = useTheme();
+    const { darkMode } = useTheme();
     const [activeStep, setActiveStep] = useState(0);
     const [cartItems, setCartItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -428,29 +428,77 @@ const Checkout = () => {
 
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Typography level="h3" sx={{ mb: 4, fontWeight: 'bold' }}>
+            <Typography level="h3" sx={{ mb: 4, fontWeight: 'bold', color: darkMode ? 'primary.300' : 'neutral.800' }} >
                 Checkout
             </Typography>
 
             <Stepper
-                sx={{ my: 4 }}
+                sx={{
+                    my: 4,
+                    '& .MuiStep-root': {
+                        flex: 1,
+                        minWidth: 0,
+                        position: 'relative'
+                    },
+                    '& .MuiStepButton-root': {
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 1
+                    },
+                    '& .MuiStepIndicator-root': {
+                        width: 40,
+                        height: 40,
+                        marginBottom: 1
+                    },
+                    '& .MuiSvgIcon-root': {
+                        fontSize: '1.25rem'
+                    }
+                }}
                 activeStep={activeStep}
             >
                 {steps.map((step, index) => (
-                    <Step key={step} completed={activeStep > index} active={activeStep === index}>
+                    <Step
+                        key={step}
+                        completed={activeStep > index}
+                        active={activeStep === index}
+                        sx={{
+                            '& .MuiStepLabel-label': {
+                                mt: 1,
+                                textAlign: 'center',
+                                fontSize: '0.875rem',
+                                color: activeStep === index ?
+                                    (darkMode ? 'primary.300' : 'primary.600') :
+                                    (darkMode ? 'neutral.400' : 'neutral.600')
+                            }
+                        }}
+                    >
                         <StepButton
                             onClick={() => {
                                 if (index < activeStep) setActiveStep(index);
                             }}
-                            sx={{ cursor: index < activeStep ? 'pointer' : 'default' }}
+                            sx={{
+                                cursor: index < activeStep ? 'pointer' : 'default',
+                                p: 0
+                            }}
                         >
-                            <StepIndicator>
-                                {index === 0 ?
-                                    <LocationOnIcon /> :
-                                    index === 1 ? <PaymentIcon /> : <CheckCircleIcon />
-                                }
+                            <StepIndicator
+                                variant={activeStep === index ? "solid" : "soft"}
+                                color={activeStep >= index ? "primary" : "neutral"}
+                            >
+                                {index === 0 ? (
+                                    <LocationOnIcon />
+                                ) : index === 1 ? (
+                                    <PaymentIcon />
+                                ) : (
+                                    <CheckCircleIcon />
+                                )}
                             </StepIndicator>
-                            {step}
+                            <Typography
+                                level="body-sm"
+                                fontWeight={activeStep === index ? 'bold' : 'normal'}
+                            >
+                                {step}
+                            </Typography>
                         </StepButton>
                     </Step>
                 ))}
@@ -816,7 +864,7 @@ const Checkout = () => {
                                                                 display: 'flex',
                                                                 alignItems: 'center',
                                                                 justifyContent: 'center',
-                                                                bgcolor: isDarkMode ? 'neutral.700' : 'neutral.200'
+                                                                bgcolor: darkMode ? 'neutral.700' : 'neutral.200'
                                                             }}>
                                                                 No image
                                                             </Box>
@@ -891,7 +939,7 @@ const Checkout = () => {
 
                 {/* Order Summary */}
                 <Grid xs={12} md={4}>
-                    <Card variant={isDarkMode ? 'soft' : 'outlined'} sx={{ position: 'sticky', top: '80px' }}>
+                    <Card variant={darkMode ? 'soft' : 'outlined'} sx={{ position: 'sticky', top: '80px' }}>
                         <CardContent>
                             <Typography level="h5" sx={{ mb: 2 }}>
                                 Order Summary

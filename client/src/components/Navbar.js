@@ -185,6 +185,25 @@ export default function Navbar() {
         navigate('/signin', { replace: true });
     };
 
+    // Custom function to format the cart count badge
+    const formatCartBadge = (count) => {
+        if (count > 99) return "99+";
+        return count;
+    };
+
+    // Custom badge styles for better display of larger numbers
+    const badgeStyles = {
+        minWidth: '20px',
+        height: '20px',
+        padding: '0 6px',
+        fontSize: '0.75rem',
+        fontWeight: 'bold',
+        borderRadius: '10px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+    };
+
     const drawer = (
         <Box sx={{
             width: 250,
@@ -253,7 +272,13 @@ export default function Navbar() {
                                 color="neutral"
                                 fullWidth
                                 startDecorator={
-                                    <Badge badgeContent={cartCount} color="danger">
+                                    <Badge
+                                        badgeContent={formatCartBadge(cartCount)}
+                                        color="danger"
+                                        sx={{
+                                            '& .MuiBadge-badge': badgeStyles
+                                        }}
+                                    >
                                         <ShoppingCartIcon />
                                     </Badge>
                                 }
@@ -289,7 +314,13 @@ export default function Navbar() {
                                 color="neutral"
                                 fullWidth
                                 startDecorator={
-                                    <Badge badgeContent={cartCount} color="danger">
+                                    <Badge
+                                        badgeContent={formatCartBadge(cartCount)}
+                                        color="danger"
+                                        sx={{
+                                            '& .MuiBadge-badge': badgeStyles
+                                        }}
+                                    >
                                         <ShoppingCartIcon />
                                     </Badge>
                                 }
@@ -356,17 +387,17 @@ export default function Navbar() {
                     py: 1,
                     bgcolor: darkMode ? 'neutral.900' : 'primary.500',
                     boxShadow: 'md',
-                    zIndex: 1200 // Higher zIndex to ensure it's above other content
+                    zIndex: 1200,
+                    color: darkMode ? '#ffffff' : 'inherit' // Ensure text is white in dark mode
                 }}
             >
                 <Toolbar sx={{ justifyContent: 'space-between' }}>
                     {/* Left side - Logo and mobile menu button */}
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton
-                            color="neutral"
                             variant="soft"
                             onClick={handleDrawerToggle}
-                            sx={{ mr: 2, display: { sm: 'none' } }}
+                            sx={{ mr: 2, display: { sm: 'none' }, color: darkMode ? 'neutral.800' : 'default' }}
                         >
                             <MenuIcon />
                         </IconButton>
@@ -396,7 +427,13 @@ export default function Navbar() {
                             variant="soft"
                             color="neutral"
                         >
-                            <Badge badgeContent={cartCount} color="danger">
+                            <Badge
+                                badgeContent={formatCartBadge(cartCount)}
+                                color="danger"
+                                sx={{
+                                    '& .MuiBadge-badge': badgeStyles
+                                }}
+                            >
                                 <ShoppingCartIcon />
                             </Badge>
                         </IconButton>
@@ -448,21 +485,22 @@ export default function Navbar() {
                         <DarkModeToggle />
                     </Box>
                 </Toolbar>
-            </AppBar>
+            </AppBar >
 
             {/* Mobile drawer */}
-            <Drawer
+            < Drawer
                 variant="temporary"
                 open={mobileOpen}
                 onClose={handleDrawerToggle}
-                ModalProps={{ keepMounted: true }}
+                ModalProps={{ keepMounted: true }
+                }
                 sx={{ display: { xs: 'block', sm: 'none' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 250 } }}
             >
                 {drawer}
-            </Drawer>
+            </Drawer >
 
             {/* Profile Menu - Using Popover instead of Menu for better positioning */}
-            <Popover
+            < Popover
                 open={open}
                 anchorEl={anchorEl}
                 onClose={handleMenuClose}
@@ -483,72 +521,75 @@ export default function Navbar() {
                     },
                 }}
             >
-                {isLoggedIn ? (
-                    // Logged-in user menu
-                    <Box sx={{ p: 1 }}>
-                        <Box sx={{ p: 2, textAlign: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
-                            <Avatar
-                                size="md"
-                                variant="outlined"
-                                color="primary"
-                                sx={{ mx: 'auto', mb: 1 }}
-                            >
-                                {username?.charAt(0)?.toUpperCase() || 'U'}
-                            </Avatar>
-                            <Typography level="title-sm">{username}</Typography>
-                            {isAdmin && (
-                                <Typography level="body-xs" color="primary">Administrator</Typography>
-                            )}
-                        </Box>
+                {
+                    isLoggedIn ? (
+                        // Logged-in user menu
+                        <Box sx={{ p: 1 }} >
+                            <Box sx={{ p: 2, textAlign: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
+                                <Avatar
+                                    size="md"
+                                    variant="outlined"
+                                    color="primary"
+                                    sx={{ mx: 'auto', mb: 1 }}
+                                >
+                                    {username?.charAt(0)?.toUpperCase() || 'U'}
+                                </Avatar>
+                                <Typography level="title-sm">{username}</Typography>
+                                {isAdmin && (
+                                    <Typography level="body-xs" color="primary">Administrator</Typography>
+                                )}
+                            </Box>
 
-                        <MenuItem
-                            onClick={() => { handleMenuClose(); navigate('/profile'); }}
-                            sx={{ py: 1.5 }}
-                        >
-                            <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
-                            My Profile
-                        </MenuItem>
-
-                        {isAdmin && (
                             <MenuItem
-                                onClick={() => { handleMenuClose(); navigate('/admin/dashboard'); }}
+                                onClick={() => { handleMenuClose(); navigate('/profile'); }}
                                 sx={{ py: 1.5 }}
                             >
-                                <DashboardIcon sx={{ mr: 1, fontSize: 20 }} />
-                                Admin Dashboard
+                                <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
+                                My Profile
                             </MenuItem>
-                        )}
 
-                        <Divider />
+                            {
+                                isAdmin && (
+                                    <MenuItem
+                                        onClick={() => { handleMenuClose(); navigate('/admin/dashboard'); }}
+                                        sx={{ py: 1.5 }}
+                                    >
+                                        <DashboardIcon sx={{ mr: 1, fontSize: 20 }} />
+                                        Admin Dashboard
+                                    </MenuItem>
+                                )
+                            }
 
-                        <MenuItem
-                            onClick={handleLogout}
-                            sx={{ py: 1.5, color: 'danger.500' }}
-                        >
-                            <LogoutIcon sx={{ mr: 1, fontSize: 20 }} />
-                            Sign Out
-                        </MenuItem>
-                    </Box>
-                ) : (
-                    // Guest user menu (mobile only)
-                    <Box sx={{ p: 1 }}>
-                        <MenuItem
-                            onClick={() => { handleMenuClose(); navigate('/signin'); }}
-                            sx={{ py: 1.5 }}
-                        >
-                            <AccountCircleIcon sx={{ mr: 1, fontSize: 20 }} />
-                            Sign In
-                        </MenuItem>
-                        <MenuItem
-                            onClick={() => { handleMenuClose(); navigate('/signup'); }}
-                            sx={{ py: 1.5 }}
-                        >
-                            <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
-                            Sign Up
-                        </MenuItem>
-                    </Box>
-                )}
-            </Popover>
+                            <Divider />
+
+                            <MenuItem
+                                onClick={handleLogout}
+                                sx={{ py: 1.5, color: 'danger.500' }}
+                            >
+                                <LogoutIcon sx={{ mr: 1, fontSize: 20 }} />
+                                Sign Out
+                            </MenuItem>
+                        </Box >
+                    ) : (
+                        // Guest user menu (mobile only)
+                        <Box sx={{ p: 1 }}>
+                            <MenuItem
+                                onClick={() => { handleMenuClose(); navigate('/signin'); }}
+                                sx={{ py: 1.5 }}
+                            >
+                                <AccountCircleIcon sx={{ mr: 1, fontSize: 20 }} />
+                                Sign In
+                            </MenuItem>
+                            <MenuItem
+                                onClick={() => { handleMenuClose(); navigate('/signup'); }}
+                                sx={{ py: 1.5 }}
+                            >
+                                <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
+                                Sign Up
+                            </MenuItem>
+                        </Box>
+                    )}
+            </Popover >
         </>
     );
 }

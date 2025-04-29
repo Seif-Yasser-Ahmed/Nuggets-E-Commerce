@@ -25,8 +25,11 @@ import {
     Radio,
     Sheet,
     Input,
-    Chip
+    Chip,
+    Alert,
+    Textarea
 } from '@mui/joy';
+import { Rating } from '@mui/material';
 import {
     Star as StarIcon,
     ShoppingCart as CartIcon,
@@ -36,77 +39,9 @@ import {
     Remove as RemoveIcon
 } from '@mui/icons-material';
 import { useTheme } from '../contexts/ThemeContext';
-import { addToCart } from '../services/cartService'; // Fixed import path
-
-// Mock data for the product - In real app, fetch this from API
-const mockProduct = {
-    id: '1',
-    name: 'Super Rockez A400 Bluetooth Headphones',
-    description: 'Experience unparalleled sound quality with these premium wireless headphones. Featuring active noise cancellation, 40-hour battery life, and comfortable over-ear design.',
-    price: 2900,
-    currency: 'EGP',
-    discount: 15,
-    rating: 4.5,
-    reviewCount: 124,
-    images: [
-        'https://images.unsplash.com/photo-1593121925328-369cc8459c08?auto=format&fit=crop&w=500',
-        'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=500',
-        'https://images.unsplash.com/photo-1600086827875-a63b01f1335c?auto=format&fit=crop&w=500'
-    ],
-    colors: [
-        { name: 'Black', value: '#000000' },
-        { name: 'White', value: '#FFFFFF' },
-        { name: 'Blue', value: '#0000FF' }
-    ],
-    sizes: ['S', 'M', 'L'],
-    stock: 7,
-    specs: {
-        'Bluetooth Version': '5.0',
-        'Battery Life': '40 hours',
-        'Charging Time': '2 hours',
-        'Noise Cancellation': 'Active',
-        'Microphone': 'Built-in with voice assistant support'
-    },
-    publisher: {
-        name: 'AudioTech Inc.',
-        logo: 'https://images.unsplash.com/photo-1560800452-f2d475982b96?auto=format&fit=crop&w=100',
-        rating: 4.8,
-        productCount: 32,
-        since: '2015'
-    },
-    reviews: [
-        {
-            id: 1,
-            user: {
-                name: 'Sarah Johnson',
-                avatar: 'https://i.pravatar.cc/150?img=1'
-            },
-            rating: 5,
-            date: '2023-09-15',
-            comment: 'These are the best headphones I\'ve ever owned! The sound quality is amazing and the noise cancellation works great on airplanes.'
-        },
-        {
-            id: 2,
-            user: {
-                name: 'Michael Chen',
-                avatar: 'https://i.pravatar.cc/150?img=2'
-            },
-            rating: 4,
-            date: '2023-08-30',
-            comment: 'Really comfortable for long listening sessions. Battery life is impressive, but the app could be better.'
-        },
-        {
-            id: 3,
-            user: {
-                name: 'Jessica Lee',
-                avatar: 'https://i.pravatar.cc/150?img=3'
-            },
-            rating: 5,
-            date: '2023-07-22',
-            comment: 'Sound quality exceeded my expectations. The bass response is perfect, and they look stylish too!'
-        }
-    ]
-};
+import { addToCart } from '../services/cartService';
+import { getProductById } from '../services/productService';
+import { addReview, getReviews } from '../services/reviewService';
 
 const Item = () => {
     const { id } = useParams();
@@ -115,6 +50,7 @@ const Item = () => {
     const { isDarkMode } = useTheme();
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [selectedImage, setSelectedImage] = useState(0);
     const [selectedColor, setSelectedColor] = useState(0);
     const [selectedSize, setSelectedSize] = useState(null);
@@ -125,31 +61,167 @@ const Item = () => {
     const [snackbarMessage, setSnackbarMessage] = useState('');
     const [snackbarSeverity, setSnackbarSeverity] = useState('');
 
-    // Fetch product data
+    // Review states
+    const [reviews, setReviews] = useState([]);
+    const [reviewsLoading, setReviewsLoading] = useState(false);
+    const [newReview, setNewReview] = useState({
+        rating: 5,
+        comment: ''
+    });
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+    const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
+
+    // Fetch product data on component mount
     useEffect(() => {
-        // Simulate API call with timeout
         const fetchProduct = async () => {
             try {
-                // In a real app, fetch from API: await api.get(`/products/${id}`)
-                setTimeout(() => {
-                    setProduct(mockProduct);
-                    setLoading(false);
-                }, 700);
+                setLoading(true);
+                const response = await getProductById(id);
+
+                if (response.data && response.data.data) {
+                    // Initialize product data, ensuring images is an array
+                    const productData = response.data.data;
+                    if (!Array.isArray(productData.images)) {
+                        productData.images = productData.image_url ? [productData.image_url] : [];
+                    }
+                    setProduct(productData);
+
+                    // Check if user is logged in to enable review submission
+                    setIsUserLoggedIn(!!localStorage.getItem('userId'));
+                    // Fetch reviews for the product
+                    fetchReviews(id);
+                } else {
+                    setError('Product information not available');
+                }
             } catch (error) {
-                console.error('Failed to fetch product:', error);
+                console.error('Error fetching product:', error);
+                setError('Failed to load product details');
+            } finally {
                 setLoading(false);
             }
         };
 
-        fetchProduct();
+        if (id) {
+            fetchProduct();
+        }
     }, [id]);
+
+    // Check for reviews tab in URL
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        if (searchParams.get('tab') === 'reviews') {
+            // If product has specs, reviews is tab 2, otherwise it's tab 1
+            setActiveTab(product && product.specs && Object.keys(product.specs).length > 0 ? 2 : 1);
+        }
+    }, [location.search, product]);
+
+    // Function to fetch product reviews
+    const fetchReviews = async (productId) => {
+        try {
+            setReviewsLoading(true);
+            const response = await getReviews(productId);
+
+            if (response.data && response.data.data) {
+                setReviews(response.data.data);
+                console.log("Reviews loaded:", response.data.data.length, "reviews found");
+            } else {
+                console.log("No reviews found in response");
+                setReviews([]);
+            }
+        } catch (error) {
+            console.error('Failed to fetch reviews:', error);
+            // Don't show an error message, just keep reviews empty
+            setReviews([]);
+        } finally {
+            setReviewsLoading(false);
+        }
+    };
+
+    // Handle review input change
+    const handleReviewChange = (e) => {
+        const { name, value } = e.target;
+        setNewReview({
+            ...newReview,
+            [name]: value
+        });
+    };
+
+    // Handle rating change
+    const handleRatingChange = (event, newValue) => {
+        setNewReview({
+            ...newReview,
+            rating: newValue
+        });
+    };
+
+    // Handle review submission
+    const handleSubmitReview = async (e) => {
+        e.preventDefault();
+
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
+            // Show notification to log in
+            setSnackbarOpen(true);
+            setSnackbarMessage('Please sign in to submit a review');
+            setSnackbarSeverity('warning');
+            navigate('/signin', { state: { from: location.pathname } });
+            return;
+        }
+
+        if (!newReview.comment.trim()) {
+            setSnackbarOpen(true);
+            setSnackbarMessage('Please write a comment for your review');
+            setSnackbarSeverity('warning');
+            return;
+        }
+
+        try {
+            setIsSubmittingReview(true);
+
+            const reviewData = {
+                user_id: userId,
+                product_id: id,
+                rating: newReview.rating,
+                comment: newReview.comment
+            };
+
+            await addReview(id, reviewData);
+
+            // Reset the form
+            setNewReview({
+                rating: 5,
+                comment: ''
+            });
+
+            // Show success message
+            setSnackbarOpen(true);
+            setSnackbarMessage('Your review has been submitted successfully!');
+            setSnackbarSeverity('success');
+
+            // Refresh reviews
+            fetchReviews(id);
+        } catch (error) {
+            console.error('Failed to submit review:', error);
+            let errorMessage = 'Failed to submit your review. Please try again.';
+
+            if (error.response && error.response.status === 409) {
+                errorMessage = 'You have already reviewed this product';
+            }
+
+            setSnackbarOpen(true);
+            setSnackbarMessage(errorMessage);
+            setSnackbarSeverity('error');
+        } finally {
+            setIsSubmittingReview(false);
+        }
+    };
 
     const handleColorChange = (index) => {
         setSelectedColor(index);
     };
 
-    const handleSizeChange = (event) => {
-        setSelectedSize(event.target.value);
+    const handleSizeChange = (size) => {
+        setSelectedSize(size);
     };
 
     const increaseQuantity = () => {
@@ -175,21 +247,21 @@ const Item = () => {
 
             if (!token || !userId) {
                 console.log('User not authenticated, redirecting to signin');
-                // Show sign in notification
                 navigate('/signin', { state: { from: location.pathname } });
                 return;
             }
 
-            // Add a console log to debug the token
-            console.log('Adding to cart with token:', token ? 'Token exists' : 'No token');
+            // Add to cart with selected variants
+            const selectedColorName = product.colors && product.colors.length > 0
+                ? product.colors[selectedColor]?.name
+                : null;
 
             await addToCart({
                 userId,
                 productId: product.id,
                 quantity,
-                // You could include size, color or other variants here
                 size: selectedSize,
-                color: product.colors[selectedColor]?.name
+                color: selectedColorName
             });
 
             // Show success notification
@@ -233,12 +305,14 @@ const Item = () => {
     const renderStars = (rating) => {
         const stars = [];
         const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 !== 0;
+        const hasHalfStar = rating % 1 >= 0.5;
 
+        // Add full stars
         for (let i = 0; i < fullStars; i++) {
             stars.push(<StarIcon key={i} sx={{ color: 'warning.500' }} />);
         }
 
+        // Add half star if needed
         if (hasHalfStar) {
             stars.push(
                 <span key="half" style={{ position: 'relative', display: 'inline-flex' }}>
@@ -254,7 +328,8 @@ const Item = () => {
             );
         }
 
-        const emptyStars = 5 - stars.length;
+        // Add empty stars
+        const emptyStars = 5 - (fullStars + (hasHalfStar ? 1 : 0));
         for (let i = 0; i < emptyStars; i++) {
             stars.push(<StarIcon key={`empty-${i}`} sx={{ color: isDarkMode ? 'grey.700' : 'grey.300' }} />);
         }
@@ -277,10 +352,18 @@ const Item = () => {
         );
     }
 
-    if (!product) {
+    if (error || !product) {
         return (
             <Container sx={{ py: 6 }}>
-                <Typography level="h3">Product not found</Typography>
+                <Alert color="danger" sx={{ mb: 4 }}>
+                    {error || "Product not found"}
+                </Alert>
+                <Button
+                    onClick={() => navigate('/store')}
+                    variant="outlined"
+                >
+                    Return to Store
+                </Button>
             </Container>
         );
     }
@@ -288,6 +371,10 @@ const Item = () => {
     const originalPrice = product.discount > 0
         ? (product.price / (1 - product.discount / 100)).toFixed(0)
         : null;
+
+    // Check if product has colors and sizes
+    const hasColors = Array.isArray(product.colors) && product.colors.length > 0;
+    const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
 
     return (
         <Container sx={{ py: 4 }}>
@@ -297,7 +384,7 @@ const Item = () => {
                     <Box sx={{ position: 'relative', mb: 2 }}>
                         <Box
                             component="img"
-                            src={product.images[selectedImage]}
+                            src={product.images[selectedImage] || product.image_url}
                             alt={product.name}
                             sx={{
                                 width: '100%',
@@ -324,32 +411,34 @@ const Item = () => {
                             {isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
                         </IconButton>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                        {product.images.map((image, index) => (
-                            <Box
-                                key={index}
-                                component="img"
-                                src={image}
-                                alt={`Thumbnail ${index + 1}`}
-                                onClick={() => setSelectedImage(index)}
-                                sx={{
-                                    width: '80px',
-                                    height: '80px',
-                                    objectFit: 'cover',
-                                    borderRadius: 'sm',
-                                    cursor: 'pointer',
-                                    border: selectedImage === index ? '2px solid' : '2px solid transparent',
-                                    borderColor: 'primary.500',
-                                    boxShadow: selectedImage === index ? 'md' : 'sm',
-                                    transition: 'all 0.2s',
-                                    opacity: selectedImage === index ? 1 : 0.7,
-                                    '&:hover': {
-                                        opacity: 1
-                                    }
-                                }}
-                            />
-                        ))}
-                    </Box>
+                    {product.images && product.images.length > 1 && (
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {product.images.map((image, index) => (
+                                <Box
+                                    key={index}
+                                    component="img"
+                                    src={image}
+                                    alt={`Thumbnail ${index + 1}`}
+                                    onClick={() => setSelectedImage(index)}
+                                    sx={{
+                                        width: '80px',
+                                        height: '80px',
+                                        objectFit: 'cover',
+                                        borderRadius: 'sm',
+                                        cursor: 'pointer',
+                                        border: selectedImage === index ? '2px solid' : '2px solid transparent',
+                                        borderColor: 'primary.500',
+                                        boxShadow: selectedImage === index ? 'md' : 'sm',
+                                        transition: 'all 0.2s',
+                                        opacity: selectedImage === index ? 1 : 0.7,
+                                        '&:hover': {
+                                            opacity: 1
+                                        }
+                                    }}
+                                />
+                            ))}
+                        </Box>
+                    )}
                 </Grid>
 
                 {/* Product Info */}
@@ -360,10 +449,10 @@ const Item = () => {
 
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                         <Box sx={{ display: 'flex', mr: 1 }}>
-                            {renderStars(product.rating)}
+                            {renderStars(product.rating || 0)}
                         </Box>
                         <Typography level="body-md" component="span" sx={{ mr: 2 }}>
-                            {product.rating} ({product.reviewCount} reviews)
+                            {product.rating || 0} ({product.reviewCount || 0} reviews)
                         </Typography>
                     </Box>
 
@@ -374,7 +463,7 @@ const Item = () => {
                             color="primary"
                             sx={{ mr: 2 }}
                         >
-                            {product.price.toLocaleString()} {product.currency}
+                            {product.price.toLocaleString()} {product.currency || 'EGP'}
                         </Typography>
 
                         {originalPrice && (
@@ -386,7 +475,7 @@ const Item = () => {
                                     mr: 2
                                 }}
                             >
-                                {originalPrice.toLocaleString()} {product.currency}
+                                {originalPrice.toLocaleString()} {product.currency || 'EGP'}
                             </Typography>
                         )}
 
@@ -405,127 +494,112 @@ const Item = () => {
                         {product.description}
                     </Typography>
 
-                    {/* Publisher info */}
-                    <Sheet
-                        variant="outlined"
-                        sx={{
-                            p: 2,
-                            mb: 3,
-                            borderRadius: 'md',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}
-                    >
-                        <Avatar
-                            src={product.publisher.logo}
-                            alt={product.publisher.name}
-                            size="lg"
-                            sx={{ mr: 2 }}
-                        />
-                        <Box>
-                            <Typography level="title-sm">Sold by</Typography>
-                            <Typography level="title-md" fontWeight="bold">
-                                {product.publisher.name}
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <StarIcon sx={{ color: 'warning.500', fontSize: 'sm', mr: 0.5 }} />
-                                <Typography level="body-sm">
-                                    {product.publisher.rating} · {product.publisher.productCount} products · Since {product.publisher.since}
-                                </Typography>
-                            </Box>
-                        </Box>
-                    </Sheet>
-
                     <Divider sx={{ my: 2 }} />
 
-                    {/* Color Selection */}
-                    <Box sx={{ mb: 3 }}>
-                        <Typography level="title-sm" sx={{ mb: 1 }}>
-                            Color: {product.colors[selectedColor].name}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            {product.colors.map((color, index) => (
-                                <Box
-                                    key={index}
-                                    onClick={() => handleColorChange(index)}
-                                    sx={{
-                                        width: 36,
-                                        height: 36,
-                                        borderRadius: '50%',
-                                        bgcolor: color.value,
-                                        cursor: 'pointer',
-                                        border: '2px solid',
-                                        borderColor: selectedColor === index ? 'primary.500' : 'transparent',
-                                        outline: color.value === '#FFFFFF' ? '1px solid' : 'none',
-                                        outlineColor: 'divider',
-                                        position: 'relative',
-                                        transition: 'transform 0.2s',
-                                        '&:hover': {
-                                            transform: 'scale(1.1)'
-                                        }
-                                    }}
-                                >
-                                    {selectedColor === index && (
-                                        <Box
-                                            sx={{
-                                                position: 'absolute',
-                                                width: '100%',
-                                                height: '100%',
-                                                borderRadius: '50%',
-                                                border: '2px solid white',
-                                                top: 0,
-                                                left: 0
-                                            }}
-                                        />
-                                    )}
-                                </Box>
-                            ))}
+                    {/* Color Selection - Only show if product has colors */}
+                    {hasColors && (
+                        <Box sx={{ mb: 3 }}>
+                            <Typography level="title-sm" sx={{ mb: 1 }}>
+                                Color: {product.colors[selectedColor]?.name}
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                {product.colors.map((color, index) => (
+                                    <Box
+                                        key={index}
+                                        onClick={() => handleColorChange(index)}
+                                        sx={{
+                                            width: 36,
+                                            height: 36,
+                                            borderRadius: '50%',
+                                            bgcolor: color.value,
+                                            cursor: 'pointer',
+                                            border: '2px solid',
+                                            borderColor: selectedColor === index ? 'primary.500' : 'transparent',
+                                            outline: color.value === '#FFFFFF' ? '1px solid' : 'none',
+                                            outlineColor: 'divider',
+                                            position: 'relative',
+                                            transition: 'transform 0.2s',
+                                            '&:hover': {
+                                                transform: 'scale(1.1)'
+                                            }
+                                        }}
+                                    >
+                                        {selectedColor === index && (
+                                            <Box
+                                                sx={{
+                                                    position: 'absolute',
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    borderRadius: '50%',
+                                                    border: '2px solid white',
+                                                    top: 0,
+                                                    left: 0
+                                                }}
+                                            />
+                                        )}
+                                    </Box>
+                                ))}
+                            </Box>
                         </Box>
-                    </Box>
+                    )}
 
-                    {/* Size Selection */}
-                    <FormControl sx={{ mb: 3 }}>
-                        <FormLabel>Size</FormLabel>
-                        <RadioGroup
-                            row
-                            value={selectedSize}
-                            onChange={handleSizeChange}
-                        >
-                            {product.sizes.map((size) => (
-                                <Radio
-                                    key={size}
-                                    value={size}
-                                    label={size}
-                                    overlay
-                                    disableIcon
-                                    variant="outlined"
-                                    sx={{
-                                        mb: 1,
-                                        mr: 1,
-                                        p: 2,
-                                        minWidth: 48,
-                                        fontWeight: 'md',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        '&:hover': {
-                                            bgcolor: 'primary.softHover'
-                                        }
-                                    }}
-                                    slotProps={{
-                                        action: ({ checked }) => ({
-                                            sx: {
-                                                fontWeight: 'lg',
-                                                borderWidth: 2,
-                                                borderColor: checked ? 'primary.500' : 'neutral.outlinedBorder',
+                    {/* Size Selection - Only show if product has sizes */}
+                    {hasSizes && (
+                        <FormControl sx={{ mb: 3, width: '100%' }}>
+                            <FormLabel id="size-selection-label">Size</FormLabel>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1 }}>
+                                {product.sizes.map((size) => (
+                                    <Sheet
+                                        key={size}
+                                        variant={selectedSize === size ? "solid" : "outlined"}
+                                        color={selectedSize === size ? "primary" : "neutral"}
+                                        onClick={() => handleSizeChange(size)}
+                                        sx={{
+                                            width: 60,
+                                            height: 60,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            borderRadius: 'md',
+                                            fontSize: '1.1rem',
+                                            fontWeight: selectedSize === size ? 'bold' : 'normal',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            position: 'relative',
+                                            boxShadow: selectedSize === size ? 'sm' : 'none',
+                                            '&:hover': {
+                                                bgcolor: selectedSize === size ?
+                                                    'primary.softHover' :
+                                                    isDarkMode ? 'neutral.700' : 'neutral.100'
                                             },
-                                        }),
-                                    }}
-                                />
-                            ))}
-                        </RadioGroup>
-                    </FormControl>
+                                            '&:active': {
+                                                transform: 'scale(0.95)'
+                                            }
+                                        }}
+                                    >
+                                        {size}
+                                        {selectedSize === size && (
+                                            <Box
+                                                sx={{
+                                                    position: 'absolute',
+                                                    width: 8,
+                                                    height: 8,
+                                                    borderRadius: '50%',
+                                                    bgcolor: 'primary.500',
+                                                    bottom: 6,
+                                                }}
+                                            />
+                                        )}
+                                    </Sheet>
+                                ))}
+                            </Box>
+                            {hasSizes && !selectedSize && (
+                                <Typography level="body-xs" color="danger" sx={{ mt: 1 }}>
+                                    Please select a size
+                                </Typography>
+                            )}
+                        </FormControl>
+                    )}
 
                     {/* Quantity Selection */}
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -590,9 +664,9 @@ const Item = () => {
                         startDecorator={<CartIcon />}
                         onClick={handleAddToCart}
                         sx={{ mb: 2 }}
-                        disabled={!selectedSize || quantity <= 0}
+                        disabled={(hasSizes && !selectedSize) || quantity <= 0 || product.stock <= 0}
                     >
-                        Add to Cart
+                        {product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
                     </Button>
                 </Grid>
             </Grid>
@@ -613,70 +687,172 @@ const Item = () => {
                         }}
                     >
                         <Tab>Description</Tab>
-                        <Tab>Specifications</Tab>
-                        <Tab>Reviews ({product.reviews.length})</Tab>
+                        {product.specs && Object.keys(product.specs).length > 0 && (
+                            <Tab>Specifications</Tab>
+                        )}
+                        <Tab>Reviews</Tab>
                     </TabList>
                     <TabPanel value={0} sx={{ p: 3 }}>
                         <Typography level="body-lg">{product.description}</Typography>
                     </TabPanel>
-                    <TabPanel value={1} sx={{ p: 3 }}>
-                        <List>
-                            {Object.entries(product.specs).map(([key, value], index) => (
-                                <ListItem
-                                    key={index}
-                                    sx={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        backgroundColor: index % 2 === 0 ? 'background.surface' : 'transparent',
-                                        borderRadius: 'sm',
-                                        py: 1.5
-                                    }}
-                                >
-                                    <Typography level="title-sm">{key}</Typography>
-                                    <Typography level="body-md">{value}</Typography>
-                                </ListItem>
-                            ))}
-                        </List>
-                    </TabPanel>
-                    <TabPanel value={2} sx={{ p: 3 }}>
-                        {product.reviews.map((review) => (
-                            <Card key={review.id} variant="outlined" sx={{ mb: 2 }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                            <Avatar
-                                                src={review.user.avatar}
-                                                alt={review.user.name}
-                                                size="sm"
-                                                sx={{ mr: 1.5 }}
-                                            />
-                                            <Box>
-                                                <Typography level="title-sm">{review.user.name}</Typography>
-                                                <Typography level="body-xs" color="neutral">{review.date}</Typography>
-                                            </Box>
-                                        </Box>
-                                        <Box sx={{ display: 'flex' }}>
-                                            {[...Array(review.rating)].map((_, i) => (
-                                                <StarIcon key={i} sx={{ color: 'warning.500', fontSize: 'md' }} />
-                                            ))}
-                                        </Box>
-                                    </Box>
-                                    <Typography level="body-md">{review.comment}</Typography>
-                                </CardContent>
-                            </Card>
-                        ))}
 
-                        {/* Review Form Placeholder */}
-                        <Card variant="outlined" sx={{ mt: 4 }}>
-                            <CardContent>
-                                <Typography level="title-md" sx={{ mb: 2 }}>Write a Review</Typography>
-                                <Typography level="body-sm" sx={{ mb: 2 }}>You need to be logged in to write a review.</Typography>
-                                <Button variant="outlined" color="primary">Sign in to write a review</Button>
-                            </CardContent>
-                        </Card>
+                    {product.specs && Object.keys(product.specs).length > 0 && (
+                        <TabPanel value={1} sx={{ p: 3 }}>
+                            <List>
+                                {Object.entries(product.specs).map(([key, value], index) => (
+                                    <ListItem
+                                        key={index}
+                                        sx={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            backgroundColor: index % 2 === 0 ? 'background.surface' : 'transparent',
+                                            borderRadius: 'sm',
+                                            py: 1.5
+                                        }}
+                                    >
+                                        <Typography level="title-sm">{key}</Typography>
+                                        <Typography level="body-md">{value}</Typography>
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </TabPanel>
+                    )}
+
+                    <TabPanel value={product.specs && Object.keys(product.specs).length > 0 ? 2 : 1} sx={{ p: 3 }}>
+                        {/* Show loading indicator while fetching reviews */}
+                        {reviewsLoading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                <CircularProgress />
+                            </Box>
+                        ) : (
+                            <>
+                                {/* Reviews list */}
+                                {reviews && reviews.length > 0 ? (
+                                    reviews.map((review) => (
+                                        <Card key={review.id} variant="outlined" sx={{ mb: 2 }}>
+                                            <CardContent>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                        <Avatar
+                                                            alt={review.user_name || "User"}
+                                                            size="sm"
+                                                            sx={{ mr: 1.5 }}
+                                                        >
+                                                            {(review.user_name || "U")[0]}
+                                                        </Avatar>
+                                                        <Box>
+                                                            <Typography level="title-sm">{review.user_name || "Anonymous User"}</Typography>
+                                                            <Typography level="body-xs" color="neutral">
+                                                                {new Date(review.created_at).toLocaleDateString()}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex' }}>
+                                                        {[...Array(parseInt(review.rating))].map((_, i) => (
+                                                            <StarIcon key={i} sx={{ color: 'warning.500', fontSize: 'md' }} />
+                                                        ))}
+                                                        {[...Array(5 - parseInt(review.rating))].map((_, i) => (
+                                                            <StarIcon key={i + parseInt(review.rating)} sx={{ color: isDarkMode ? 'neutral.600' : 'neutral.300', fontSize: 'md' }} />
+                                                        ))}
+                                                    </Box>
+                                                </Box>
+                                                <Typography level="body-md">{review.comment}</Typography>
+                                            </CardContent>
+                                        </Card>
+                                    ))
+                                ) : (
+                                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                                        <Typography level="body-lg" sx={{ mb: 2 }}>No reviews yet</Typography>
+                                        <Typography level="body-sm" sx={{ color: 'neutral.500', mb: 3 }}>
+                                            Be the first to share your experience with this product
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {/* Review Form - Show only if user is logged in */}
+                                <Card variant="outlined" sx={{ mt: 4 }}>
+                                    <CardContent>
+                                        <Typography level="title-md" sx={{ mb: 2 }}>Write a Review</Typography>
+
+                                        {isUserLoggedIn ? (
+                                            <form onSubmit={handleSubmitReview}>
+                                                <FormControl id="review-rating" sx={{ mb: 2 }}>
+                                                    <FormLabel>Rating</FormLabel>
+                                                    <Rating
+                                                        name="rating"
+                                                        value={newReview.rating}
+                                                        onChange={handleRatingChange}
+                                                        precision={1}
+                                                    />
+                                                </FormControl>
+
+                                                <FormControl id="review-comment" sx={{ mb: 3 }}>
+                                                    <FormLabel>Your Review</FormLabel>
+                                                    <Textarea
+                                                        name="comment"
+                                                        placeholder="Share your experience with this product..."
+                                                        minRows={3}
+                                                        value={newReview.comment}
+                                                        onChange={handleReviewChange}
+                                                        required
+                                                    />
+                                                </FormControl>
+
+                                                <Button
+                                                    type="submit"
+                                                    color="primary"
+                                                    loading={isSubmittingReview}
+                                                    disabled={!newReview.comment.trim() || isSubmittingReview}
+                                                >
+                                                    Submit Review
+                                                </Button>
+                                            </form>
+                                        ) : (
+                                            <>
+                                                <Typography level="body-sm" sx={{ mb: 2 }}>
+                                                    You need to be logged in to write a review.
+                                                </Typography>
+                                                <Button
+                                                    variant="outlined"
+                                                    color="primary"
+                                                    onClick={() => navigate('/signin', { state: { from: location.pathname } })}
+                                                >
+                                                    Sign in to write a review
+                                                </Button>
+                                            </>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </>
+                        )}
                     </TabPanel>
                 </Tabs>
             </Box>
+
+            {/* Snackbar for notifications */}
+            {snackbarOpen && (
+                <Alert
+                    sx={{
+                        position: 'fixed',
+                        bottom: 16,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 9999,
+                        maxWidth: '90%',
+                        width: '400px'
+                    }}
+                    color={snackbarSeverity}
+                    variant="soft"
+                    onClose={() => setSnackbarOpen(false)}
+                    endDecorator={
+                        <Button size="sm" variant="soft" color={snackbarSeverity} onClick={() => setSnackbarOpen(false)}>
+                            Dismiss
+                        </Button>
+                    }
+                >
+                    {snackbarMessage}
+                </Alert>
+            )}
         </Container>
     );
 };

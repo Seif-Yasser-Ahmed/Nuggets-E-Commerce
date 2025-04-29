@@ -1,8 +1,6 @@
 const db = require('../db');
 
 module.exports = {
-
-
     createUser: (user, callback) => {
         const { firstName, lastName, email, username, password } = user;
         const query = `
@@ -15,6 +13,11 @@ module.exports = {
     getUserByUsername: (username, cb) => {
         const query = 'SELECT id, username, password, isAdmin FROM user WHERE username = ?';
         db.query(query, [username], cb);
+    },
+
+    getUserByEmail: (email, cb) => {
+        const query = 'SELECT id, username, password, isAdmin FROM user WHERE email = ?';
+        db.query(query, [email], cb);
     },
 
     getUserById: (id, cb) => {
