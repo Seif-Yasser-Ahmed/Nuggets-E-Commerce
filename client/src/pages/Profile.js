@@ -90,21 +90,31 @@ function Profile() {
                 const response = await getProfile(storedUserId);
                 console.log("Profile data from server:", response.data.data);
 
-                // Get API base URL from the API service
-                const apiBaseUrl = API.defaults.baseURL || '';
+                // Get API base URL from the API service - but strip off the /api/v1 part
+                const apiBaseUrl = API.defaults.baseURL ? API.defaults.baseURL.split('/api/v1')[0] : '';
 
                 // Ensure the profile image path is properly constructed
-                const profileImagePath = response.data.data.personal_image || '';
+                const profileImagePath = response.data.data.profile_image || '';
 
-                // Construct the full image URL - using the API base URL since that's where the uploads are served from
-                // For images that start with "/uploads/", we need to ensure they get the proper API base URL
-                const fullProfileImage = profileImagePath.startsWith('http')
-                    ? profileImagePath
-                    : profileImagePath && profileImagePath.startsWith('/')
-                        ? `${apiBaseUrl}${profileImagePath}`
-                        : profileImagePath
-                            ? `${apiBaseUrl}/${profileImagePath}`
-                            : '';
+                // Construct the full image URL
+                let fullProfileImage = '';
+
+                // If it's already an absolute URL (starts with http), use it directly
+                if (profileImagePath.startsWith('http')) {
+                    fullProfileImage = profileImagePath;
+                }
+                // If it's a relative URL starting with a slash (like /uploads/...)
+                else if (profileImagePath && profileImagePath.startsWith('/')) {
+                    // Remove any trailing slash from apiBaseUrl to avoid double slashes
+                    const baseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+                    fullProfileImage = `${baseUrl}${profileImagePath}`;
+                }
+                // For any other case, ensure proper formatting
+                else if (profileImagePath) {
+                    // Remove any trailing slash from apiBaseUrl to avoid double slashes
+                    const baseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+                    fullProfileImage = `${baseUrl}/${profileImagePath}`;
+                }
 
                 console.log("Full profile image URL:", fullProfileImage);
 
@@ -312,16 +322,28 @@ function Profile() {
                 // Get the server URL for the saved image
                 const serverImageUrl = response.data.data.imageUrl;
 
-                // Get API base URL from the API service
-                const apiBaseUrl = API.defaults.baseURL || '';
+                // Get API base URL from the API service - but strip off the /api/v1 part
+                const apiBaseUrl = API.defaults.baseURL ? API.defaults.baseURL.split('/api/v1')[0] : '';
 
                 // Construct full URL to the image with API base URL
-                // For images that start with "/uploads/", we need to ensure they get the proper API base URL
-                const fullImageUrl = serverImageUrl.startsWith('http')
-                    ? serverImageUrl
-                    : serverImageUrl && serverImageUrl.startsWith('/')
-                        ? `${apiBaseUrl}${serverImageUrl}`
-                        : `${apiBaseUrl}/${serverImageUrl}`;
+                let fullImageUrl = '';
+
+                // If it's already an absolute URL (starts with http), use it directly
+                if (serverImageUrl.startsWith('http')) {
+                    fullImageUrl = serverImageUrl;
+                }
+                // If it's a relative URL starting with a slash (like /uploads/...)
+                else if (serverImageUrl && serverImageUrl.startsWith('/')) {
+                    // Remove any trailing slash from apiBaseUrl to avoid double slashes
+                    const baseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+                    fullImageUrl = `${baseUrl}${serverImageUrl}`;
+                }
+                // For any other case, ensure proper formatting
+                else if (serverImageUrl) {
+                    // Remove any trailing slash from apiBaseUrl to avoid double slashes
+                    const baseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+                    fullImageUrl = `${baseUrl}/${serverImageUrl}`;
+                }
 
                 console.log("New profile image URL:", fullImageUrl);
 
@@ -472,7 +494,7 @@ function Profile() {
                                             height: 120,
                                             border: '4px solid',
                                             borderColor: 'primary.500',
-                                            bgcolor: 'primary.500',
+                                            bgcolor: user.profileImage ? 'transparent' : 'primary.500',
                                             fontSize: '48px'
                                         }}
                                     >
