@@ -27,7 +27,9 @@ import {
     CircularProgress,
     Chip,
     AspectRatio,
-    Alert
+    Alert,
+    Modal,
+    CardOverflow
 } from '@mui/joy';
 import {
     Edit as EditIcon,
@@ -75,6 +77,12 @@ function Profile() {
         message: '',
         severity: 'success'
     });
+
+    // Modal state for order details
+    const [orderModalOpen, setOrderModalOpen] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState(null);
+    const [orderDetails, setOrderDetails] = useState(null);
+    const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
 
     useEffect(() => {
         const storedUserId = localStorage.getItem('userId');
@@ -290,6 +298,36 @@ function Profile() {
             console.error('Error updating profile:', error);
             showNotification('Failed to update profile.', 'error');
         }
+    };
+
+    // Fetch order details for the selected order
+    const fetchOrderDetails = async (orderId) => {
+        try {
+            setOrderDetailsLoading(true);
+            setSelectedOrder(orderId);
+            setOrderModalOpen(true);
+
+            const storedUserId = localStorage.getItem('userId');
+            const response = await API.get(`/orders/${orderId}`);
+
+            if (response.data && response.data.success) {
+                setOrderDetails(response.data.data);
+            } else {
+                showNotification('Failed to fetch order details.', 'error');
+            }
+        } catch (error) {
+            console.error('Error fetching order details:', error);
+            showNotification('Failed to fetch order details.', 'error');
+        } finally {
+            setOrderDetailsLoading(false);
+        }
+    };
+
+    // Close the order details modal
+    const handleCloseOrderModal = () => {
+        setOrderModalOpen(false);
+        setSelectedOrder(null);
+        setOrderDetails(null);
     };
 
     const showNotification = (message, severity) => {
@@ -996,7 +1034,9 @@ function Profile() {
                                                                     variant="plain"
                                                                     color="primary"
                                                                     sx={{ fontSize: 'xs' }}
-                                                                    onClick={() => navigate(`/orders/${order.id}`)}
+                                                                    onClick={() => {
+                                                                        fetchOrderDetails(order.id);
+                                                                    }}
                                                                 >
                                                                     View Details
                                                                 </Button>
@@ -1165,7 +1205,254 @@ function Profile() {
                     </Grid>
                 </Grid>
             </Container>
+
+            <OrderDetailsModal
+                open={orderModalOpen}
+                onClose={handleCloseOrderModal}
+                order={orderDetails}
+                loading={orderDetailsLoading}
+            />
         </Box>
+    );
+}
+
+// Order Details Modal Component
+function OrderDetailsModal({ open, onClose, order, loading }) {
+    const { darkMode } = useTheme();
+
+    if (!order && !loading) return null;
+
+    return (
+        <Modal
+            open={open}
+            onClose={onClose}
+            sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}
+        >
+            <Card
+                variant="outlined"
+                sx={{
+                    maxWidth: 600,
+                    maxHeight: '90vh',
+                    width: '90%',
+                    overflowY: 'auto',
+                    bgcolor: darkMode ? 'neutral.900' : 'background.paper',
+                    boxShadow: 'lg',
+                }}
+            >
+                <Box
+                    sx={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 1,
+                        // pick a truly opaque surface color from your theme
+                        bgcolor: darkMode ? 'neutral.800' : 'neutral.50',
+                        opacity: 1,          // ensure no alpha leakage
+                    }}
+                >
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            p: 2,
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                            bgcolor: 'primary.900', // inherits the solid parent background
+                            position: 'relative',
+                            opacity: 1, // ensure no alpha leakage
+                            zIndex: 10,
+                        }}
+                    >
+                        <Typography
+                            level="h4"
+                            sx={{ color: darkMode ? 'primary.200' : 'text.primary' }}
+                        >
+                            Order Details
+                        </Typography>
+                        <IconButton
+                            onClick={onClose}
+                            variant="plain"
+                            color="neutral"
+                            sx={{ borderRadius: '50%' }}
+                        >
+                            <CloseIcon />
+                        </IconButton>
+                    </Box>
+                </Box>
+
+
+                <CardContent>
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : order ? (
+                        <>
+                            <Box sx={{ mb: 3 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                    <Typography level="h5" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>Order #{order.id}</Typography>
+                                    <Chip
+                                        size="md"
+                                        variant="soft"
+                                        color={
+                                            order.status === 'delivered' ? 'success' :
+                                                order.status === 'shipped' ? 'primary' :
+                                                    order.status === 'processing' ? 'info' :
+                                                        order.status === 'cancelled' ? 'danger' : 'warning'
+                                        }
+                                    >
+                                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                                    </Chip>
+                                </Box>
+                                <Typography level="body-sm" sx={{ color: darkMode ? 'neutral.400' : 'neutral.600' }}>
+                                    Placed on {new Date(order.created_at).toLocaleString()}
+                                </Typography>
+                            </Box>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            {/* Shipping Information */}
+                            <Box sx={{ mb: 3 }}>
+                                <Typography level="title-md" sx={{ mb: 1, color: darkMode ? 'primary.200' : 'background.paper' }}>Shipping Address</Typography>
+                                {order.shipping_address ? (
+                                    <Card variant="soft" size="sm" sx={{ p: 2 }}>
+                                        <Typography>{order.shipping_address.fullName}</Typography>
+                                        <Typography>{order.shipping_address.address}</Typography>
+                                        <Typography>
+                                            {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.zip}
+                                        </Typography>
+                                        <Typography>{order.shipping_address.country}</Typography>
+                                        <Typography>Phone: {order.shipping_address.phone}</Typography>
+                                    </Card>
+                                ) : (
+                                    <Typography level="body-sm" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>Shipping information not available</Typography>
+                                )}
+                            </Box>
+
+                            {/* Payment Method */}
+                            <Box sx={{ mb: 3 }}>
+                                <Typography level="title-md" sx={{ mb: 1, color: darkMode ? 'primary.200' : 'background.paper' }}>Payment Method</Typography>
+                                <Typography sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>
+                                    {order.payment_method === 'credit_card' ? 'Credit Card' : 'Cash on Delivery'}
+                                </Typography>
+                            </Box>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            {/* Order Items */}
+                            <Box sx={{ mb: 3 }}>
+                                <Typography level="title-md" sx={{ mb: 2, color: darkMode ? 'primary.200' : 'background.paper' }}>Order Items</Typography>
+
+                                {order.items && order.items.length > 0 ? (
+                                    <Box>
+                                        {order.items.map((item) => (
+                                            <Box
+                                                key={item.id}
+                                                sx={{
+                                                    display: 'flex',
+                                                    mb: 2,
+                                                    p: 1.5,
+                                                    borderRadius: 'md',
+                                                    bgcolor: darkMode ? 'neutral.800' : 'neutral.100',
+                                                }}
+                                            >
+                                                <AspectRatio
+                                                    ratio="1"
+                                                    sx={{
+                                                        width: 60,
+                                                        borderRadius: 'md',
+                                                        overflow: 'hidden',
+                                                        flexShrink: 0
+                                                    }}
+                                                >
+                                                    {item.image_url ? (
+                                                        <img
+                                                            src={item.image_url}
+                                                            alt={item.name}
+                                                            style={{ objectFit: 'cover' }}
+                                                        />
+                                                    ) : (
+                                                        <Box sx={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            bgcolor: darkMode ? 'neutral.700' : 'neutral.200',
+                                                            height: '100%'
+                                                        }}>
+                                                            No image
+                                                        </Box>
+                                                    )}
+                                                </AspectRatio>
+
+                                                <Box sx={{ ml: 2, display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                        <Typography level="title-sm" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>{item.name}</Typography>
+                                                        <Typography level="body-md" fontWeight="bold" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>${(item.price * item.quantity).toFixed(2)}</Typography>
+                                                    </Box>
+                                                    <Typography level="body-sm" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>
+                                                        Qty: {item.quantity} × ${Number(item.price).toFixed(2)}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                ) : (
+                                    <Typography level="body-sm" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>No items found for this order</Typography>
+                                )}
+                            </Box>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            {/* Order Summary */}
+                            <Box sx={{ mb: 2 }}>
+                                <Typography level="title-md" sx={{ mb: 2, color: darkMode ? 'primary.200' : 'background.paper' }}>Order Summary</Typography>
+
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: darkMode ? 'primary.200' : 'background.paper' }}>
+                                    <Typography sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>Subtotal:</Typography>
+                                    <Typography sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>${(order.total_amount * 0.8).toFixed(2)}</Typography>
+                                </Box>
+
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: darkMode ? 'primary.200' : 'background.paper' }}>
+                                    <Typography sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>Shipping:</Typography>
+                                    <Typography sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>$50.00</Typography>
+                                </Box>
+
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: darkMode ? 'primary.200' : 'background.paper' }}>
+                                    <Typography sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>Tax (14%):</Typography>
+                                    <Typography sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>${(order.total_amount * 0.06).toFixed(2)}</Typography>
+                                </Box>
+
+                                <Divider sx={{ my: 1.5 }} />
+
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <Typography level="title-md" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>Total:</Typography>
+                                    <Typography level="title-md" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>${Number(order.total_amount).toFixed(2)}</Typography>
+                                </Box>
+                            </Box>
+                        </>
+                    ) : (
+                        <Typography level="body-md" sx={{ textAlign: 'center', py: 4, color: darkMode ? 'primary.200' : 'background.paper' }}>
+                            Order information not available
+                        </Typography>
+                    )}
+                </CardContent>
+
+                <CardOverflow sx={{ borderTop: '1px solid', borderColor: 'divider', p: 2, margin: 2 }}>
+                    <Button
+                        variant="solid"
+                        color="primary"
+                        onClick={onClose}
+                        fullWidth
+                    >
+                        Close
+                    </Button>
+                </CardOverflow>
+            </Card>
+        </Modal>
     );
 }
 
