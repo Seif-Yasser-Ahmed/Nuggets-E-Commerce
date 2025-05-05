@@ -9,11 +9,11 @@ A comprehensive e-commerce platform with user and admin interfaces, product mana
 - [Features](#features)
 - [Project Structure](#project-structure)
 - [Technologies Used](#technologies-used)
-- [Getting Started](#getting-started)
-  [- Prerequisites](#prerequisites)
-  [- Installation](#installation)
-  [- Configuration](#configuration)
-  [- Running the Application](#running-the-applicatio)
+- [Getting Started](#getting-started) <br>
+  - [Prerequisites](#prerequisites) <br>
+  - [Installation](#installation) <br>
+  - [Configuration](#configuration) <br>
+  - [Running the Application](#running-the-application) <br>
 - [Database Schema](#database-schema)
 - [Frontend Overview](#frontend-overview)
 - [Backend Overview](#backend-overview)
