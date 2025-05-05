@@ -130,11 +130,78 @@ exports.getAll = (req, res) => {
 
 exports.remove = (req, res) => {
     const userId = req.params.id;
-    deleteUser(userId, (err, result) => {
-        if (err) return res.status(500).json({ success: false, error: 'Error deleting user' });
-        if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'User not found' });
 
-        res.status(200).json({ success: true, message: 'User deleted successfully' });
+    // Log the deletion attempt for debugging
+    console.log(`Attempting to delete user with ID: ${userId}`);
+
+    // First check if the user exists
+    const checkUserQuery = 'SELECT username FROM user WHERE id = ?';
+    db.query(checkUserQuery, [userId], (err, results) => {
+        if (err) {
+            console.error('Error checking user existence:', err);
+            return res.status(500).json({ success: false, error: 'Error checking user existence' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const username = results[0].username;
+
+        // Delete the user's associated data first
+        // This ensures all foreign key relationships are properly handled
+
+        // 1. Delete user's wishlist items
+        const deleteWishlistQuery = 'DELETE wi FROM wishlist_item wi JOIN wishlist w ON wi.wishlist_id = w.id WHERE w.user_id = ?';
+        db.query(deleteWishlistQuery, [userId], (err) => {
+            if (err) {
+                console.error('Error deleting wishlist items:', err);
+                return res.status(500).json({ success: false, error: 'Error deleting wishlist items' });
+            }
+
+            // 2. Delete user's wishlist
+            const deleteWishlistTableQuery = 'DELETE FROM wishlist WHERE user_id = ?';
+            db.query(deleteWishlistTableQuery, [userId], (err) => {
+                if (err) {
+                    console.error('Error deleting wishlist:', err);
+                    return res.status(500).json({ success: false, error: 'Error deleting wishlist' });
+                }
+
+                // 3. Delete user's cart items
+                const deleteCartQuery = 'DELETE FROM cart WHERE user_id = ?';
+                db.query(deleteCartQuery, [userId], (err) => {
+                    if (err) {
+                        console.error('Error deleting cart items:', err);
+                        return res.status(500).json({ success: false, error: 'Error deleting cart items' });
+                    }
+
+                    // 4. Delete user's reviews
+                    const deleteReviewsQuery = 'DELETE FROM reviews WHERE user_id = ?';
+                    db.query(deleteReviewsQuery, [userId], (err) => {
+                        if (err) {
+                            console.error('Error deleting reviews:', err);
+                            return res.status(500).json({ success: false, error: 'Error deleting reviews' });
+                        }
+
+                        // Finally, delete the user
+                        const deleteUserQuery = 'DELETE FROM user WHERE id = ?';
+                        db.query(deleteUserQuery, [userId], (err, result) => {
+                            if (err) {
+                                console.error('Error deleting user:', err);
+                                return res.status(500).json({ success: false, error: 'Error deleting user' });
+                            }
+
+                            if (result.affectedRows === 0) {
+                                return res.status(404).json({ success: false, message: 'User not found' });
+                            }
+
+                            console.log(`User ${username} (ID: ${userId}) successfully deleted`);
+                            res.status(200).json({ success: true, message: 'User deleted successfully' });
+                        });
+                    });
+                });
+            });
+        });
     });
 };
 

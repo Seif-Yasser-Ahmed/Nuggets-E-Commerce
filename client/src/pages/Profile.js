@@ -77,6 +77,10 @@ function Profile() {
     const [passwordError, setPasswordError] = useState('');
     const [changingPassword, setChangingPassword] = useState(false);
 
+    // Delete account modal state
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [deletingAccount, setDeletingAccount] = useState(false);
+
     const [orderHistory, setOrderHistory] = useState([]);
     const [ordersLoading, setOrdersLoading] = useState(false);
     const [wishlistItems, setWishlistItems] = useState([]);
@@ -483,6 +487,41 @@ function Profile() {
             setPasswordError('Failed to change password. Please try again.');
         } finally {
             setChangingPassword(false);
+        }
+    };
+
+    // Delete account handler
+    const handleDeleteAccount = async () => {
+        setDeletingAccount(true);
+
+        try {
+            const storedUserId = localStorage.getItem('userId');
+            const username = user.username;
+
+            // Call the API to delete the user account
+            await API.delete(`/users/${storedUserId}`);
+
+            // Show success notification
+            showNotification(`Account for ${username} deleted successfully.`, 'success');
+
+            // Log the user out by clearing all authentication data
+            localStorage.removeItem('token');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('username');
+            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('userProfile');
+
+            // Dispatch auth change event to update UI components like the navbar
+            window.dispatchEvent(new CustomEvent('auth-status-changed'));
+
+            // Redirect to home page
+            navigate('/', { replace: true });
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            showNotification('Failed to delete account. Please try again.', 'error');
+            setDeleteConfirmOpen(false);
+        } finally {
+            setDeletingAccount(false);
         }
     };
 
@@ -1248,6 +1287,7 @@ function Profile() {
                                                 variant="outlined"
                                                 color="danger"
                                                 size="sm"
+                                                onClick={() => setDeleteConfirmOpen(true)}
                                             >
                                                 Delete Account
                                             </Button>
@@ -1273,6 +1313,55 @@ function Profile() {
                 order={orderDetails}
                 loading={orderDetailsLoading}
             />
+
+            {/* Delete Account Confirmation Modal */}
+            <Modal
+                open={deleteConfirmOpen}
+                onClose={() => setDeleteConfirmOpen(false)}
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                <Card
+                    variant="outlined"
+                    sx={{
+                        maxWidth: 400,
+                        width: '90%',
+                        bgcolor: darkMode ? 'neutral.900' : 'white',
+                        color: darkMode ? 'white' : 'inherit',
+                        boxShadow: 'lg',
+                    }}
+                >
+                    <CardContent>
+                        <Typography level="h5" sx={{ mb: 2, color: darkMode ? 'primary.200' : 'inherit' }}>
+                            Delete Account
+                        </Typography>
+                        <Typography level="body-sm" sx={{ mb: 3, color: darkMode ? 'neutral.400' : 'neutral.600' }}>
+                            Are you sure you want to delete your account? This action is irreversible.
+                        </Typography>
+
+                        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                            <Button
+                                variant="soft"
+                                color="danger"
+                                onClick={() => setDeleteConfirmOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="solid"
+                                color="danger"
+                                onClick={handleDeleteAccount}
+                                loading={deletingAccount}
+                            >
+                                {deletingAccount ? <CircularProgress size="sm" /> : 'Delete Account'}
+                            </Button>
+                        </Box>
+                    </CardContent>
+                </Card>
+            </Modal>
         </Box>
     );
 }
