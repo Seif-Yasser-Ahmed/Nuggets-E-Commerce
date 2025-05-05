@@ -2,6 +2,9 @@ const { getUserById, getAllUsers, deleteUser, updateUser, updateUserSocialLinks,
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcrypt');
+const db = require('../db'); // Add db connection
+const saltRounds = 10;
 
 exports.getProfile = (req, res) => {
     const userId = req.params.id;
@@ -160,5 +163,64 @@ exports.updateAdminStatus = (req, res) => {
         }
 
         res.status(200).json({ success: true, message: 'Admin status updated successfully' });
+    });
+};
+
+exports.updatePassword = (req, res) => {
+    const userId = req.params.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+    }
+
+    // First get the user to verify current password
+    const getUserQuery = 'SELECT password FROM user WHERE id = ?';
+    db.query(getUserQuery, [userId], (err, results) => {
+        if (err) {
+            console.error('Error fetching user for password update:', err);
+            return res.status(500).json({ success: false, error: 'Database error' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const storedHashedPassword = results[0].password;
+
+        // Verify current password
+        bcrypt.compare(currentPassword, storedHashedPassword, (err, isMatch) => {
+            if (err) {
+                console.error('Error comparing passwords:', err);
+                return res.status(500).json({ success: false, error: 'Password verification error' });
+            }
+
+            if (!isMatch) {
+                return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+            }
+
+            // Hash the new password
+            bcrypt.hash(newPassword, saltRounds, (err, hash) => {
+                if (err) {
+                    console.error('Error hashing new password:', err);
+                    return res.status(500).json({ success: false, error: 'Error hashing new password' });
+                }
+
+                // Update the password in the database
+                const updateQuery = 'UPDATE user SET password = ? WHERE id = ?';
+                db.query(updateQuery, [hash, userId], (err, result) => {
+                    if (err) {
+                        console.error('Error updating password:', err);
+                        return res.status(500).json({ success: false, error: 'Failed to update password' });
+                    }
+
+                    if (result.affectedRows === 0) {
+                        return res.status(404).json({ success: false, message: 'User not found' });
+                    }
+
+                    res.status(200).json({ success: true, message: 'Password updated successfully' });
+                });
+            });
+        });
     });
 };

@@ -68,6 +68,15 @@ function Profile() {
     const navigate = useNavigate();
     const { darkMode } = useTheme();
 
+    // Password change state
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [passwordError, setPasswordError] = useState('');
+    const [changingPassword, setChangingPassword] = useState(false);
+
     const [orderHistory, setOrderHistory] = useState([]);
     const [ordersLoading, setOrdersLoading] = useState(false);
     const [wishlistItems, setWishlistItems] = useState([]);
@@ -440,6 +449,40 @@ function Profile() {
         } catch (error) {
             console.error('Error adding item to cart:', error);
             showNotification('Failed to add item to cart.', 'error');
+        }
+    };
+
+    // Password change handler
+    const handlePasswordChange = async () => {
+        setPasswordError('');
+        setChangingPassword(true);
+
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            setPasswordError('New password and confirmation do not match.');
+            setChangingPassword(false);
+            return;
+        }
+
+        try {
+            const storedUserId = localStorage.getItem('userId');
+            await API.put(`/users/${storedUserId}/password`, {
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword
+            });
+
+            showNotification('Password changed successfully!', 'success');
+
+            // Clear password fields
+            setPasswordData({
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: ''
+            });
+        } catch (error) {
+            console.error('Error changing password:', error);
+            setPasswordError('Failed to change password. Please try again.');
+        } finally {
+            setChangingPassword(false);
         }
     };
 
@@ -1149,6 +1192,8 @@ function Profile() {
                                                     label="Current Password"
                                                     size="sm"
                                                     fullWidth
+                                                    value={passwordData.currentPassword}
+                                                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                                                 />
                                             </Grid>
                                             <Grid xs={12} sm={6}>
@@ -1158,6 +1203,8 @@ function Profile() {
                                                     label="New Password"
                                                     size="sm"
                                                     fullWidth
+                                                    value={passwordData.newPassword}
+                                                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                                                 />
                                             </Grid>
                                             <Grid xs={12} sm={6}>
@@ -1167,6 +1214,8 @@ function Profile() {
                                                     label="Confirm New Password"
                                                     size="sm"
                                                     fullWidth
+                                                    value={passwordData.confirmPassword}
+                                                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                                                 />
                                             </Grid>
                                             <Grid xs={12}>
@@ -1175,10 +1224,17 @@ function Profile() {
                                                         variant="solid"
                                                         color="primary"
                                                         size="sm"
+                                                        onClick={handlePasswordChange}
+                                                        disabled={changingPassword}
                                                     >
-                                                        Update Password
+                                                        {changingPassword ? <CircularProgress size="sm" /> : 'Update Password'}
                                                     </Button>
                                                 </Box>
+                                                {passwordError && (
+                                                    <Typography level="body-sm" sx={{ color: 'danger.500', mt: 1, textAlign: 'right' }}>
+                                                        {passwordError}
+                                                    </Typography>
+                                                )}
                                             </Grid>
                                         </Grid>
                                     </Box>

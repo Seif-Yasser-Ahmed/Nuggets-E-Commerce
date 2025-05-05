@@ -44,9 +44,6 @@ app.use('/api/v1/users', authRoutes);
 // Protected/user routes
 app.use('/api/v1/users', userRoutes);
 
-// Protected/user routes
-app.use('/api/v1/users', userRoutes);
-
 // Admin routes
 app.use('/api/v1', adminRoutes);
 
