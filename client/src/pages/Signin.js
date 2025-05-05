@@ -54,6 +54,9 @@ function Signin() {
                 }));
                 console.log('isAdmin:', isAdmin);
 
+                // Dispatch auth-status-changed event to update the navbar immediately
+                window.dispatchEvent(new CustomEvent('auth-status-changed'));
+
                 // IMPORTANT: Merge guest cart with user cart
                 try {
                     await mergeGuestCartWithUserCart(id);
