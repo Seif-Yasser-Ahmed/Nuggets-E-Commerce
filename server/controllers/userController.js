@@ -1,4 +1,4 @@
-const { getUserById, getAllUsers, deleteUser, updateUser, updateUserSocialLinks, updateUserProfileImage } = require('../models/userModel');
+const { getUserById, getAllUsers, deleteUser, updateUser, updateUserSocialLinks, updateUserProfileImage, updateUserAdminStatus } = require('../models/userModel');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -132,5 +132,33 @@ exports.remove = (req, res) => {
         if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'User not found' });
 
         res.status(200).json({ success: true, message: 'User deleted successfully' });
+    });
+};
+
+exports.updateAdminStatus = (req, res) => {
+    const userId = req.params.id;
+    const { isAdmin } = req.body;
+
+    console.log('Updating admin status for user:', userId);
+    console.log('isAdmin value received:', isAdmin);
+
+    if (isAdmin === undefined) {
+        console.log('isAdmin field is missing');
+        return res.status(400).json({ success: false, message: 'isAdmin field is required' });
+    }
+
+    updateUserAdminStatus(userId, isAdmin, (err, result) => {
+        if (err) {
+            console.error('Error updating admin status:', err);
+            return res.status(500).json({ success: false, error: 'Error updating admin status' });
+        }
+
+        console.log('Update result:', result);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.status(200).json({ success: true, message: 'Admin status updated successfully' });
     });
 };

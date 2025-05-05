@@ -9,7 +9,8 @@ const {
     update,
     delete: deleteProduct,
     getCategories,
-    getLowStock
+    getLowStock,
+    uploadImage
 } = require('../controllers/productController');
 const {
     getProductReviews,
@@ -26,6 +27,7 @@ router.get('/:id', getById);
 
 // Admin-only routes
 router.post('/', authenticateAdmin, create);
+router.post('/upload-image', authenticateAdmin, uploadImage);
 router.put('/:id', authenticateAdmin, update);
 router.delete('/:id', authenticateAdmin, deleteProduct);
 router.get('/inventory/low-stock', authenticateAdmin, getLowStock);

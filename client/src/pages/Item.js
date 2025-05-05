@@ -42,12 +42,13 @@ import { useTheme } from '../contexts/ThemeContext';
 import { addToCart } from '../services/cartService';
 import { getProductById } from '../services/productService';
 import { addReview, getReviews } from '../services/reviewService';
+import { formatImageUrl } from '../utils/imageUtils';
 
 const Item = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-    const { isDarkMode } = useTheme();
+    const { darkMode } = useTheme();
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -316,7 +317,7 @@ const Item = () => {
         if (hasHalfStar) {
             stars.push(
                 <span key="half" style={{ position: 'relative', display: 'inline-flex' }}>
-                    <StarIcon sx={{ color: isDarkMode ? 'grey.700' : 'grey.300' }} />
+                    <StarIcon sx={{ color: darkMode ? 'grey.700' : 'grey.300' }} />
                     <StarIcon
                         sx={{
                             position: 'absolute',
@@ -331,7 +332,7 @@ const Item = () => {
         // Add empty stars
         const emptyStars = 5 - (fullStars + (hasHalfStar ? 1 : 0));
         for (let i = 0; i < emptyStars; i++) {
-            stars.push(<StarIcon key={`empty-${i}`} sx={{ color: isDarkMode ? 'grey.700' : 'grey.300' }} />);
+            stars.push(<StarIcon key={`empty-${i}`} sx={{ color: darkMode ? 'grey.700' : 'grey.300' }} />);
         }
 
         return stars;
@@ -384,7 +385,7 @@ const Item = () => {
                     <Box sx={{ position: 'relative', mb: 2 }}>
                         <Box
                             component="img"
-                            src={product.images[selectedImage] || product.image_url}
+                            src={formatImageUrl(product.images[selectedImage] || product.image_url)}
                             alt={product.name}
                             sx={{
                                 width: '100%',
@@ -443,7 +444,7 @@ const Item = () => {
 
                 {/* Product Info */}
                 <Grid xs={12} md={6}>
-                    <Typography level="h2" fontWeight="bold" sx={{ mb: 1 }}>
+                    <Typography level="h2" fontWeight="bold" sx={{ mb: 1, color: darkMode ? 'primary.300' : 'neutral.800' }}>
                         {product.name}
                     </Typography>
 
@@ -451,7 +452,7 @@ const Item = () => {
                         <Box sx={{ display: 'flex', mr: 1 }}>
                             {renderStars(product.rating || 0)}
                         </Box>
-                        <Typography level="body-md" component="span" sx={{ mr: 2 }}>
+                        <Typography level="body-md" component="span" sx={{ mr: 2, color: darkMode ? 'primary.300' : 'neutral.800' }}>
                             {product.rating || 0} ({product.reviewCount || 0} reviews)
                         </Typography>
                     </Box>
@@ -499,7 +500,7 @@ const Item = () => {
                     {/* Color Selection - Only show if product has colors */}
                     {hasColors && (
                         <Box sx={{ mb: 3 }}>
-                            <Typography level="title-sm" sx={{ mb: 1 }}>
+                            <Typography level="title-sm" sx={{ mb: 1, color: darkMode ? 'primary.300' : 'neutral.800' }}>
                                 Color: {product.colors[selectedColor]?.name}
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -570,7 +571,7 @@ const Item = () => {
                                             '&:hover': {
                                                 bgcolor: selectedSize === size ?
                                                     'primary.softHover' :
-                                                    isDarkMode ? 'neutral.700' : 'neutral.100'
+                                                    darkMode ? 'neutral.700' : 'neutral.100'
                                             },
                                             '&:active': {
                                                 transform: 'scale(0.95)'
@@ -594,7 +595,7 @@ const Item = () => {
                                 ))}
                             </Box>
                             {hasSizes && !selectedSize && (
-                                <Typography level="body-xs" color="danger" sx={{ mt: 1 }}>
+                                <Typography level="body-xs" color="danger" sx={{ mt: 1, color: darkMode ? 'primary.300' : 'neutral.800' }}>
                                     Please select a size
                                 </Typography>
                             )}
@@ -603,7 +604,7 @@ const Item = () => {
 
                     {/* Quantity Selection */}
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                        <FormLabel sx={{ mr: 2 }}>Quantity:</FormLabel>
+                        <FormLabel sx={{ mr: 2, color: darkMode ? 'primary.300' : 'neutral.800' }}>Quantity:</FormLabel>
                         <Sheet
                             variant="outlined"
                             sx={{
@@ -752,7 +753,7 @@ const Item = () => {
                                                             <StarIcon key={i} sx={{ color: 'warning.500', fontSize: 'md' }} />
                                                         ))}
                                                         {[...Array(5 - parseInt(review.rating))].map((_, i) => (
-                                                            <StarIcon key={i + parseInt(review.rating)} sx={{ color: isDarkMode ? 'neutral.600' : 'neutral.300', fontSize: 'md' }} />
+                                                            <StarIcon key={i + parseInt(review.rating)} sx={{ color: darkMode ? 'neutral.600' : 'neutral.300', fontSize: 'md' }} />
                                                         ))}
                                                     </Box>
                                                 </Box>

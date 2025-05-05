@@ -82,6 +82,14 @@ module.exports = {
         db.query(query, [imageUrl, id], cb);
     },
 
+    updateUserAdminStatus: (id, isAdmin, cb) => {
+        // Ensure isAdmin is treated as a number (0 or 1)
+        const adminValue = isAdmin ? 1 : 0;
+        console.log('Setting isAdmin to:', adminValue, 'for user ID:', id);
+        const query = 'UPDATE user SET isAdmin = ? WHERE id = ?';
+        db.query(query, [adminValue, id], cb);
+    },
+
     getAllUsers: (cb) => {
         const query = 'SELECT id, username,email,first_name,last_name,telephone,isAdmin,created_at FROM user';
         // console.log('Executing query:', query); // Log the query for debugging

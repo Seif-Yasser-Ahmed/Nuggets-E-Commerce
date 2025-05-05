@@ -20,6 +20,7 @@ import Alert from '@mui/joy/Alert';
 import { useTheme } from '../contexts/ThemeContext';
 import { getWishlist, addToWishlist, removeFromWishlist } from '../services/userService';
 import { addToCart } from '../services/cartService';
+import { formatImageUrl } from '../utils/imageUtils';
 
 export default function ProductCard({ product }) {
     const navigate = useNavigate();
@@ -264,7 +265,7 @@ export default function ProductCard({ product }) {
                         {image ? (
                             <img
                                 className="product-image"
-                                src={image}
+                                src={formatImageUrl(image)}
                                 alt={name}
                                 style={{
                                     objectFit: 'cover',

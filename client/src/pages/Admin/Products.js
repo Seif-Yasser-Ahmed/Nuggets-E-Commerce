@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Box,
     Button,
@@ -39,9 +39,11 @@ import {
     Search as SearchIcon,
     InventoryRounded,
     FormatColorFill as ColorIcon,
-    Straighten as SizeIcon
+    Straighten as SizeIcon,
+    CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 import API from '../../services/api';
+import { formatImageUrl } from '../../utils/imageUtils';
 
 const Products = () => {
     // State
@@ -79,6 +81,11 @@ const Products = () => {
     const [specs, setSpecs] = useState([{ key: '', value: '' }]);
     const [colors, setColors] = useState([{ name: '', value: '' }]);
     const [sizes, setSizes] = useState(['']);
+
+    // Image upload state
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState('');
+    const fileInputRef = useRef(null);
 
     // Load products and categories
     useEffect(() => {
@@ -194,6 +201,8 @@ const Products = () => {
         setSpecs([{ key: '', value: '' }]);
         setColors([{ name: '', value: '' }]);
         setSizes(['']);
+        setImageFile(null);
+        setImagePreview('');
         setDialogOpen(true);
     };
 
@@ -235,6 +244,9 @@ const Products = () => {
             hasColors: hasColors,
             hasSizes: hasSizes,
         });
+
+        setImageFile(null);
+        setImagePreview(product.image_url);
 
         setDialogOpen(true);
     };
@@ -284,14 +296,57 @@ const Products = () => {
             ? sizes.filter(size => size.trim())
             : [];
 
-        const productData = {
-            ...formData,
-            specs: specsObject,
-            colors: filteredColors,
-            sizes: filteredSizes
-        };
-
         try {
+            let finalImageUrl = formData.image_url;
+
+            // If we have a new image file, upload it first
+            if (imageFile) {
+                setSnackbar({
+                    open: true,
+                    message: 'Uploading image, please wait...',
+                    severity: 'info'
+                });
+
+                // Create form data for image upload
+                const imageFormData = new FormData();
+                imageFormData.append('image', imageFile);
+
+                // Log for debugging
+                console.log('Uploading image file:', imageFile.name, imageFile.type, imageFile.size);
+
+                try {
+                    const uploadResponse = await API.post('/products/upload-image', imageFormData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data'
+                        }
+                    });
+
+                    console.log('Upload response:', uploadResponse.data);
+
+                    // If upload was successful, get the image URL
+                    if (uploadResponse.data && uploadResponse.data.imageUrl) {
+                        finalImageUrl = uploadResponse.data.imageUrl;
+                        console.log('Image uploaded successfully:', finalImageUrl);
+                    }
+                } catch (uploadError) {
+                    console.error('Error uploading image:', uploadError.response ? uploadError.response.data : uploadError.message);
+                    setSnackbar({
+                        open: true,
+                        message: `Failed to upload image: ${uploadError.response?.data?.error || uploadError.message}`,
+                        severity: 'error'
+                    });
+                    return;
+                }
+            }
+
+            const productData = {
+                ...formData,
+                specs: specsObject,
+                colors: filteredColors,
+                sizes: filteredSizes,
+                image_url: finalImageUrl
+            };
+
             if (isEditing) {
                 await API.put(`/products/${currentProduct.id}`, productData);
                 setSnackbar({
@@ -315,7 +370,7 @@ const Products = () => {
             console.error('Error saving product:', error);
             setSnackbar({
                 open: true,
-                message: 'Failed to save product',
+                message: error.response?.data?.error || 'Failed to save product',
                 severity: 'error'
             });
         }
@@ -357,6 +412,38 @@ const Products = () => {
             message: 'Category added successfully',
             severity: 'success'
         });
+    };
+
+    // Handle image file change
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    // Upload image and return the URL
+    const uploadImage = async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await API.post('/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data.url;
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            setSnackbar({
+                open: true,
+                message: 'Failed to upload image',
+                severity: 'error'
+            });
+            return null;
+        }
     };
 
     return (
@@ -433,7 +520,7 @@ const Products = () => {
                                             {product.image_url ? (
                                                 <Box
                                                     component="img"
-                                                    src={product.image_url}
+                                                    src={formatImageUrl(product.image_url)}
                                                     alt={product.name}
                                                     sx={{
                                                         width: 50,
@@ -666,6 +753,43 @@ const Products = () => {
                                     variant="outlined"
                                     placeholder="https://example.com/image.jpg"
                                 />
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <input
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                    id="image-upload"
+                                    type="file"
+                                    onChange={handleImageChange}
+                                    ref={fileInputRef}
+                                />
+                                <label htmlFor="image-upload">
+                                    <Button
+                                        variant="outlined"
+                                        component="span"
+                                        startIcon={<CloudUploadIcon />}
+                                        fullWidth
+                                    >
+                                        {imageFile ? 'Change Image' : 'Upload Image'}
+                                    </Button>
+                                </label>
+
+                                {imagePreview && (
+                                    <Box
+                                        component="img"
+                                        src={imagePreview}
+                                        alt="Image preview"
+                                        sx={{
+                                            mt: 2,
+                                            width: '100%',
+                                            height: 'auto',
+                                            maxHeight: 300,
+                                            objectFit: 'contain',
+                                            borderRadius: 1
+                                        }}
+                                    />
+                                )}
                             </Grid>
 
                             <Grid item xs={12}>

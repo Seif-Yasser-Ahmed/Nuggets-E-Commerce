@@ -116,6 +116,7 @@ function Dashboard() {
                 align="center"
                 gutterBottom
                 style={{ fontWeight: 'bold', marginBottom: '24px' }}
+                sx={{ color: '#1976d2' }}
             >
                 Admin Dashboard
             </Typography>
@@ -176,7 +177,7 @@ function Dashboard() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={3}>
+                {/* <Grid item xs={12} sm={6} md={3}>
                     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                         <CardContent sx={{ flexGrow: 1 }}>
                             <ReportsIcon sx={{ color: 'info.main', fontSize: 40, mb: 2 }} />
@@ -192,7 +193,7 @@ function Dashboard() {
                             <Button size="small" onClick={handleNavigateToLogs}>View Logs</Button>
                         </CardActions>
                     </Card>
-                </Grid>
+                </Grid> */}
             </Grid>
 
             {/* Charts */}

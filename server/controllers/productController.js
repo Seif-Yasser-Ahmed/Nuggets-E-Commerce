@@ -8,6 +8,9 @@ const {
     getCategories,
     getLowStock
 } = require('../models/productModel');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 // Create a new product
 exports.create = (req, res) => {
@@ -272,5 +275,70 @@ exports.getLowStock = (req, res) => {
         });
 
         res.status(200).json({ success: true, data: products });
+    });
+};
+
+// Setup storage for product image uploads
+const productImageStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadDir = path.join(__dirname, '../uploads/products');
+        // Create directory if it doesn't exist
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        // Generate unique filename with original extension
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const extension = path.extname(file.originalname);
+        cb(null, `product_${uniqueSuffix}${extension}`);
+    }
+});
+
+// Configure multer for product image uploads
+const productImageUpload = multer({
+    storage: productImageStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB file size limit
+    fileFilter: function (req, file, cb) {
+        const filetypes = /jpeg|jpg|png|gif|webp/;
+        const mimetype = filetypes.test(file.mimetype);
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        }
+        cb(new Error('Only image files are allowed (jpg, jpeg, png, gif, webp)!'));
+    }
+}).single('image');
+
+// Handle product image uploads
+exports.uploadImage = (req, res) => {
+    productImageUpload(req, res, function (err) {
+        if (err) {
+            console.error('Error uploading product image:', err);
+            return res.status(400).json({ success: false, error: err.message });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'No image file provided' });
+        }
+
+        // Log the uploaded file details
+        console.log('Received file:', {
+            filename: req.file.filename,
+            originalname: req.file.originalname,
+            size: req.file.size,
+            path: req.file.path
+        });
+
+        // Create relative URL for the image (will be served from uploads directory)
+        const imageUrl = `/uploads/products/${req.file.filename}`;
+
+        res.status(200).json({
+            success: true,
+            message: 'Image uploaded successfully',
+            imageUrl: imageUrl
+        });
     });
 };

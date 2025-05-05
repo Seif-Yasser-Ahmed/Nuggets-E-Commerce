@@ -18,7 +18,7 @@ export const ThemeProvider = ({ children }) => {
 
     // Dark mode palette
     const darkPalette = {
-        background: '#121212',
+        background: '#011a32',
         surface: '#1E1E1E',
         primary: '#90CAF9',
         secondary: '#B39DDB',

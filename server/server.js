@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
 dotenv.config();
 
@@ -18,6 +19,17 @@ const db = require('./db'); // ✅ imported db from db.js
 
 const app = express();
 const port = process.env.PORT || 5000;
+
+// Create uploads directories if they don't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+const productsDir = path.join(uploadsDir, 'products');
+
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
+if (!fs.existsSync(productsDir)) {
+    fs.mkdirSync(productsDir);
+}
 
 app.use(cors());
 app.use(express.json());

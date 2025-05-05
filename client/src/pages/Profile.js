@@ -98,6 +98,11 @@ function Profile() {
                 const response = await getProfile(storedUserId);
                 console.log("Profile data from server:", response.data.data);
 
+                // Add detailed logging
+                console.log("Telephone from server:", response.data.data.telephone);
+                console.log("Phone from server:", response.data.data.phone);
+                console.log("All available fields:", Object.keys(response.data.data));
+
                 // Get API base URL from the API service - but strip off the /api/v1 part
                 const apiBaseUrl = API.defaults.baseURL ? API.defaults.baseURL.split('/api/v1')[0] : '';
 
@@ -132,7 +137,7 @@ function Profile() {
                     lastName: response.data.data.last_name || 'Doe',
                     email: response.data.data.email || '',
                     profileImage: fullProfileImage,
-                    phone: response.data.data.telephone || '',
+                    phone: response.data.data.phone || '', // Use the phone field that comes from the server instead of telephone
                     location: response.data.data.location || '',
                     bio: response.data.data.bio || 'No bio information provided.',
                     occupation: response.data.data.occupation || '',
