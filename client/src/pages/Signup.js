@@ -32,7 +32,14 @@ function Signup() {
     const submitHandler = async (e) => {
         e.preventDefault();
         try {
-            const response = await signup({ firstName, lastName, email, username, password });
+            // Format data to match what the server expects
+            const response = await signup({
+                first_name: firstName,
+                last_name: lastName,
+                email,
+                username,
+                password
+            });
             console.log(response.data);
 
             setIsSuccess(true);
@@ -52,7 +59,7 @@ function Signup() {
         } catch (error) {
             console.error('Signup error:', error);
             setIsSuccess(false);
-            setMessage(error.response?.data?.message || 'Signup failed. Please try again.');
+            setMessage(error.response?.data?.error || error.response?.data?.message || 'Signup failed. Please try again.');
         }
     };
 

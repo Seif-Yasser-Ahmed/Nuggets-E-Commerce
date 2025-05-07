@@ -1,6 +1,6 @@
 // src/services/userService.js
 import axios from 'axios';
-import API from './api'; // Import the configured API instance
+import API, { formatId } from './api'; // Import the configured API instance
 
 // Base API endpoints for different resources
 const USER_API_URL = 'http://localhost:5000/api/v1/users';
@@ -26,6 +26,114 @@ export const signin = (credentials) => {
 
 export const getProfile = (userId) => {
     return axios.get(`${USER_API_URL}/profile/${userId}`);
+};
+
+// Get user profile
+export const getUserProfile = async (userId) => {
+    try {
+        const formattedId = formatId(userId);
+        const response = await API.get(`/users/${formattedId}/profile`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching user profile:', error);
+        throw error;
+    }
+};
+
+// Update user profile
+export const updateUserProfile = async (userId, profileData) => {
+    try {
+        const formattedId = formatId(userId);
+        const response = await API.put(`/users/${formattedId}/profile`, profileData);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating user profile:', error);
+        throw error;
+    }
+};
+
+// Update user social links
+export const updateSocialLinks = async (userId, socialLinks) => {
+    try {
+        const formattedId = formatId(userId);
+        const response = await API.put(`/users/${formattedId}/social-links`, { socialLinks });
+        return response.data;
+    } catch (error) {
+        console.error('Error updating social links:', error);
+        throw error;
+    }
+};
+
+// Update user profile image
+export const updateProfileImage = async (userId, imageFile) => {
+    try {
+        const formattedId = formatId(userId);
+        const formData = new FormData();
+        formData.append('image', imageFile);
+
+        const response = await API.put(`/users/${formattedId}/profile-image`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error('Error updating profile image:', error);
+        throw error;
+    }
+};
+
+// Change user password
+export const changePassword = async (userId, currentPassword, newPassword) => {
+    try {
+        const formattedId = formatId(userId);
+        const response = await API.put(`/users/${formattedId}/password`, {
+            currentPassword,
+            newPassword
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error('Error changing password:', error);
+        throw error;
+    }
+};
+
+// Admin functions
+// Get all users (admin only)
+export const getAllUsers = async () => {
+    try {
+        const response = await API.get('/users/admin/all');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+    }
+};
+
+// Delete user (admin only)
+export const deleteUser = async (userId) => {
+    try {
+        const formattedId = formatId(userId);
+        const response = await API.delete(`/users/admin/${formattedId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        throw error;
+    }
+};
+
+// Update user admin status (admin only)
+export const updateAdminStatus = async (userId, isAdmin) => {
+    try {
+        const formattedId = formatId(userId);
+        const response = await API.put(`/users/admin/${formattedId}/status`, { isAdmin });
+        return response.data;
+    } catch (error) {
+        console.error('Error updating admin status:', error);
+        throw error;
+    }
 };
 
 // -------------------------------------------------

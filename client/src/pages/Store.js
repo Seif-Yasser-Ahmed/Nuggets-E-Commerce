@@ -59,10 +59,13 @@ const Store = () => {
     const fetchProducts = async () => {
         try {
             setLoading(true);
+            console.log('Fetching products...');
             const response = await getProducts();
+            console.log('API Response:', response);
 
-            if (response.data && response.data.data) {
-                const productData = response.data.data;
+            if (response && response.data) {
+                console.log('Product data:', response.data);
+                const productData = response.data;
                 setProducts(productData);
 
                 // Extract unique categories
@@ -80,11 +83,12 @@ const Store = () => {
                 // Apply initial filters
                 setFilteredProducts(productData);
             } else {
-                setError('Failed to load products. Please try again.');
+                console.error('Invalid product response format:', response);
+                setError('Failed to load products. Response format was invalid.');
             }
         } catch (error) {
             console.error('Error fetching products:', error);
-            setError('Failed to load products. Please try again.');
+            setError(`Failed to load products: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -366,9 +370,9 @@ const Store = () => {
                     ) : filteredProducts.length > 0 ? (
                         <Grid container spacing={2}>
                             {filteredProducts.map((product) => (
-                                <Grid key={product.id} xs={12} sm={6} md={4}>
+                                <Grid key={product._id || product.id} xs={12} sm={6} md={4}>
                                     <ProductCard product={{
-                                        id: product.id,
+                                        id: product._id || product.id,
                                         name: product.name,
                                         category: product.category,
                                         price: product.price,

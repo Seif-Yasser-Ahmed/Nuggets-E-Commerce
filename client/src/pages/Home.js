@@ -116,7 +116,9 @@ export default function Home() {
             try {
                 setLoading(true);
                 const response = await getProducts();
-                const allProducts = response.data.data;
+
+                // Check if the response has the expected structure
+                const allProducts = response.data || [];
 
                 // Simulate pagination by slicing the data
                 const startIndex = 0;

@@ -1,22 +1,121 @@
 // src/services/productService.js
-import API from './api';
+import api, { formatId } from './api';
 
-export const getProducts = () => {
-    return API.get('/products');
+// Get all products
+export const getProducts = async () => {
+    try {
+        console.log('Calling products API endpoint');
+        const response = await api.get('/products');
+        console.log('Raw API response:', response);
+
+        // Check if we have the expected response structure
+        if (response && response.data) {
+            // Sometimes the data is nested inside a 'data' property, handle both cases
+            if (response.data.data) {
+                console.log('Products found in response.data.data:', response.data.data.length);
+                return {
+                    data: response.data.data
+                };
+            } else {
+                console.log('Products found in response.data:', response.data.length);
+                return {
+                    data: response.data
+                };
+            }
+        }
+
+        console.error('Unexpected API response format:', response);
+        return { data: [] };
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+    }
 };
 
-export const getProductById = (productId) => {
-    return API.get(`/products/${productId}`);
+// Get products by category
+export const getProductsByCategory = async (category) => {
+    try {
+        const response = await api.get(`/products/category/${category}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching products for category ${category}:`, error);
+        throw error;
+    }
 };
 
-export const addProduct = (productData) => {
-    return API.post('/products', productData);
+// Get all product categories
+export const getCategories = async () => {
+    try {
+        const response = await api.get('/products/categories');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching product categories:', error);
+        throw error;
+    }
 };
 
-export const updateProduct = (productId, productData) => {
-    return API.put(`/products/${productId}`, productData);
+// Get a single product by ID
+export const getProductById = async (id) => {
+    try {
+        const formattedId = formatId(id);
+        const response = await api.get(`/products/${formattedId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching product ${id}:`, error);
+        throw error;
+    }
 };
 
-export const deleteProduct = (productId) => {
-    return API.delete(`/products/${productId}`);
+// Add a new product (admin only)
+export const addProduct = async (productData) => {
+    try {
+        const response = await api.post('/products', productData);
+        return response.data;
+    } catch (error) {
+        console.error('Error adding product:', error);
+        throw error;
+    }
+};
+
+// Update a product (admin only)
+export const updateProduct = async (id, productData) => {
+    try {
+        const formattedId = formatId(id);
+        const response = await api.put(`/products/${formattedId}`, productData);
+        return response.data;
+    } catch (error) {
+        console.error(`Error updating product ${id}:`, error);
+        throw error;
+    }
+};
+
+// Delete a product (admin only)
+export const deleteProduct = async (id) => {
+    try {
+        const formattedId = formatId(id);
+        const response = await api.delete(`/products/${formattedId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error deleting product ${id}:`, error);
+        throw error;
+    }
+};
+
+// Upload product image
+export const uploadProductImage = async (file) => {
+    try {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await api.post('/products/upload-image', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error('Error uploading product image:', error);
+        throw error;
+    }
 };

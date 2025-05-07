@@ -1,7 +1,7 @@
 // client/src/pages/Profile.js
 import React, { useEffect, useState } from 'react';
 import { getProfile } from '../services/authService';
-import { getOrders } from '../services/orderService';
+import { getUserOrders } from '../services/orderService';
 import { getWishlist, removeFromWishlist } from '../services/userService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
@@ -150,7 +150,7 @@ function Profile() {
                     lastName: response.data.data.last_name || 'Doe',
                     email: response.data.data.email || '',
                     profileImage: fullProfileImage,
-                    phone: response.data.data.phone || '', // Use the phone field that comes from the server instead of telephone
+                    phone: response.data.data.telephone || '', // Map telephone to phone since that's what the server uses
                     location: response.data.data.location || '',
                     bio: response.data.data.bio || 'No bio information provided.',
                     occupation: response.data.data.occupation || '',
@@ -190,19 +190,32 @@ function Profile() {
     const fetchOrderHistory = async (userId) => {
         try {
             setOrdersLoading(true);
-            const response = await getOrders(userId);
+            const response = await getUserOrders(userId);
 
-            if (response.data && response.data.data) {
-                setOrderHistory(response.data.data.map(order => ({
-                    id: order.id || order.order_id,
-                    date: order.created_at || order.date,
-                    items: order.item_count || order.items || 0,
-                    status: order.status || 'Processing',
-                    total: order.total_amount || 0
-                })));
+            console.log("User orders response:", response);
+
+            if (response && response.data) {
+                const orders = Array.isArray(response.data) ? response.data : response.data.data;
+                if (orders && orders.length > 0) {
+                    setOrderHistory(orders.map(order => ({
+                        id: order._id || order.id,
+                        date: order.created_at || order.date,
+                        items: order.items ? order.items.length : 0,
+                        status: order.status.charAt(0).toUpperCase() + order.status.slice(1),
+                        total: order.total_amount || 0
+                    })));
+                    console.log("Processed order history:", orderHistory);
+                } else {
+                    console.log("No orders found in response");
+                    setOrderHistory([]);
+                }
+            } else {
+                console.log("Invalid response structure:", response);
+                setOrderHistory([]);
             }
         } catch (error) {
             console.error('Error fetching order history:', error);
+            setOrderHistory([]);
         } finally {
             setOrdersLoading(false);
         }
@@ -443,13 +456,25 @@ function Profile() {
     const handleAddToCart = async (item) => {
         try {
             const storedUserId = localStorage.getItem('userId');
-            await API.post('/cart', {
+
+            // Import the cart service's addToCart function
+            const { addToCart } = await import('../services/cartService');
+
+            // Use the cart service that properly handles IDs
+            const response = await addToCart({
                 userId: storedUserId,
-                productId: item.id,
+                productId: item._id || item.id, // Use either _id or id depending on what's available
                 quantity: 1
             });
 
-            showNotification('Item added to cart!', 'success');
+            if (response.success || response.data?.success) {
+                showNotification('Item added to cart!', 'success');
+
+                // Dispatch event to update cart count in navbar
+                window.dispatchEvent(new CustomEvent('cart-updated'));
+            } else {
+                showNotification('Failed to add item to cart.', 'error');
+            }
         } catch (error) {
             console.error('Error adding item to cart:', error);
             showNotification('Failed to add item to cart.', 'error');
@@ -1551,7 +1576,9 @@ function OrderDetailsModal({ open, onClose, order, loading }) {
                                         ))}
                                     </Box>
                                 ) : (
-                                    <Typography level="body-sm" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>No items found for this order</Typography>
+                                    <Typography level="body-sm" sx={{ color: darkMode ? 'primary.200' : 'background.paper' }}>
+                                        No items found for this order
+                                    </Typography>
                                 )}
                             </Box>
 

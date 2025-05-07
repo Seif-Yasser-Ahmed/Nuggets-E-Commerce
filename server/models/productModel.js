@@ -1,84 +1,54 @@
-const db = require('../db');
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-module.exports = {
-    createProduct: (product, callback) => {
-        const { name, description, price, category, image_url, stock, discount, specs, colors, sizes } = product;
-        const query = `
-            INSERT INTO product (name, description, price, category, image_url, stock, discount, specs, colors, sizes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        db.query(
-            query,
-            [
-                name,
-                description,
-                price,
-                category,
-                image_url,
-                stock,
-                discount,
-                JSON.stringify(specs || {}),
-                JSON.stringify(colors || []),
-                JSON.stringify(sizes || [])
-            ],
-            callback
-        );
+const productSchema = new Schema({
+    name: {
+        type: String,
+        required: true
     },
-
-    getProductById: (id, callback) => {
-        const query = 'SELECT * FROM product WHERE id = ?';
-        db.query(query, [id], callback);
+    description: {
+        type: String,
+        required: true
     },
-
-    getAllProducts: (callback) => {
-        const query = 'SELECT * FROM product';
-        db.query(query, callback);
+    category: {
+        type: String,
+        required: true
     },
-
-    getProductsByCategory: (category, callback) => {
-        const query = 'SELECT * FROM product WHERE category = ?';
-        db.query(query, [category], callback);
+    price: {
+        type: Number,
+        required: true
     },
-
-    updateProduct: (id, product, callback) => {
-        const { name, description, price, category, image_url, stock, discount, specs, colors, sizes } = product;
-        const query = `
-            UPDATE product 
-            SET name = ?, description = ?, price = ?, category = ?, 
-                image_url = ?, stock = ?, discount = ?, specs = ?, colors = ?, sizes = ?
-            WHERE id = ?
-        `;
-        db.query(
-            query,
-            [
-                name,
-                description,
-                price,
-                category,
-                image_url,
-                stock,
-                discount,
-                JSON.stringify(specs || {}),
-                JSON.stringify(colors || []),
-                JSON.stringify(sizes || []),
-                id
-            ],
-            callback
-        );
+    image_url: String,
+    stock: {
+        type: Number,
+        default: 0
     },
-
-    deleteProduct: (id, callback) => {
-        const query = 'DELETE FROM product WHERE id = ?';
-        db.query(query, [id], callback);
+    discount: {
+        type: Number,
+        default: 0
     },
-
-    getCategories: (callback) => {
-        const query = 'SELECT DISTINCT category FROM product';
-        db.query(query, callback);
+    specs: {
+        type: Map,
+        of: String
     },
-
-    getLowStock: (threshold, callback) => {
-        const query = 'SELECT * FROM product WHERE stock <= ?';
-        db.query(query, [threshold], callback);
+    colors: [{
+        name: String,
+        value: String
+    }],
+    sizes: [String],
+    rating: {
+        type: Number,
+        default: 0
+    },
+    review_count: {
+        type: Number,
+        default: 0
     }
-};
+}, {
+    timestamps: {
+        createdAt: 'created_at',
+        updatedAt: 'modified_at'
+    }
+});
+
+module.exports = mongoose.model('Product', productSchema);

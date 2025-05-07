@@ -117,11 +117,11 @@ const Orders = () => {
     // Function to update order status
     const handleUpdateStatus = async () => {
         try {
-            await API.put(`/orders/${selectedOrder.id}/status`, { status: newStatus });
+            await API.put(`/orders/${selectedOrder._id || selectedOrder.id}/status`, { status: newStatus });
 
             // Update the order in the local state
             const updatedOrders = orders.map(order =>
-                order.id === selectedOrder.id ? { ...order, status: newStatus } : order
+                (order._id || order.id) === (selectedOrder._id || selectedOrder.id) ? { ...order, status: newStatus } : order
             );
             setOrders(updatedOrders);
 
@@ -238,7 +238,7 @@ const Orders = () => {
                                         Order ID
                                     </Typography>
                                     <Typography variant="body1">
-                                        #{orderDetails.id}
+                                        #{orderDetails._id || orderDetails.id}
                                     </Typography>
                                 </Box>
 
@@ -478,8 +478,8 @@ const Orders = () => {
                                 </TableHead>
                                 <TableBody>
                                     {filteredOrders.map((order) => (
-                                        <TableRow key={order.id}>
-                                            <TableCell>#{order.id}</TableCell>
+                                        <TableRow key={order._id || order.id}>
+                                            <TableCell>#{order._id || order.id}</TableCell>
                                             <TableCell>
                                                 {new Date(order.created_at).toLocaleDateString()}
                                             </TableCell>
@@ -498,7 +498,7 @@ const Orders = () => {
                                             <TableCell>
                                                 <Button
                                                     startIcon={<VisibilityIcon />}
-                                                    onClick={() => handleViewOrder(order.id)}
+                                                    onClick={() => handleViewOrder(order._id || order.id)}
                                                     size="small"
                                                     sx={{ mr: 1 }}
                                                 >

@@ -18,7 +18,7 @@ import ImageNotSupportedIcon from '@mui/icons-material/ImageNotSupported';
 import Snackbar from '@mui/joy/Snackbar';
 import Alert from '@mui/joy/Alert';
 import { useTheme } from '../contexts/ThemeContext';
-import { getWishlist, addToWishlist, removeFromWishlist } from '../services/userService';
+import { getWishlist, addToWishlist, removeFromWishlist } from '../services/wishlistService';
 import { addToCart } from '../services/cartService';
 import { formatImageUrl } from '../utils/imageUtils';
 
@@ -60,8 +60,10 @@ export default function ProductCard({ product }) {
                 const response = await getWishlist(userId);
 
                 if (response.data && response.data.data) {
-                    const isInWishlist = response.data.data.some(
-                        item => item.id && item.id.toString() === id.toString()
+                    // Check for both id and _id properties to support MongoDB ObjectIds
+                    const isInWishlist = response.data.data.some(item =>
+                        (item._id && (item._id === id || item._id.toString() === id.toString())) ||
+                        (item.id && (item.id === id || item.id.toString() === id.toString()))
                     );
                     setIsFavorited(isInWishlist);
                 }
@@ -132,7 +134,15 @@ export default function ProductCard({ product }) {
 
     // Navigate to product details page
     const handleCardClick = () => {
-        navigate(`/item/${id}`);
+        // Use the first valid ID format we find
+        const productId = id || product?._id || product?.id;
+
+        if (productId) {
+            navigate(`/item/${productId}`);
+        } else {
+            console.error('Product ID missing or undefined', product);
+            showNotification('Error accessing product details', 'error');
+        }
     };
 
     // Handle adding product to cart
@@ -149,9 +159,18 @@ export default function ProductCard({ product }) {
                 return;
             }
 
+            // Make sure we have a valid product ID
+            const productId = id || product._id || product.id;
+
+            if (!productId) {
+                console.error('Product ID is missing');
+                showNotification('Error: Could not identify product', 'error');
+                return;
+            }
+
             await addToCart({
                 userId,
-                productId: id,
+                productId,
                 quantity: 1
             });
 
@@ -192,16 +211,22 @@ export default function ProductCard({ product }) {
                 return;
             }
 
+            // Make sure we have a valid product ID
+            const productId = id || product._id || product.id;
+
+            if (!productId) {
+                console.error('Product ID is missing');
+                showNotification('Error: Could not identify product', 'error');
+                return;
+            }
+
             if (isFavorited) {
                 // Remove from wishlist
-                await removeFromWishlist(userId, id);
+                await removeFromWishlist(userId, productId);
                 showNotification('Removed from wishlist');
             } else {
                 // Add to wishlist
-                await addToWishlist({
-                    userId,
-                    productId: id
-                });
+                await addToWishlist(userId, productId);
                 showNotification('Added to wishlist!');
             }
 

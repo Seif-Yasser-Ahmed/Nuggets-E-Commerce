@@ -1,19 +1,16 @@
-const mysql = require('mysql');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
-const db = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
-});
+const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/Nuggets';
 
-db.connect(err => {
-    if (err) {
-        console.error('Error connecting to MySQL:', err.message);
+mongoose.connect(mongoURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+    .then(() => console.log('MongoDB connected via db.js'))
+    .catch(err => {
+        console.error('MongoDB connection error:', err.message);
         process.exit(1);
-    }
-    console.log('Connected to MySQL database!');
-});
+    });
 
-module.exports = db;
+module.exports = mongoose.connection;

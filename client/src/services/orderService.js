@@ -1,18 +1,84 @@
 // src/services/orderService.js
-import API from './api';
+import API, { formatId } from './api';
 
-export const getOrders = (userId) => {
-    return API.get(`/orders?userId=${userId}`);
+// Create a new order
+export const createOrder = async (orderData) => {
+    try {
+        // Format user ID to be compatible with MongoDB
+        if (orderData.userId) {
+            orderData.userId = formatId(orderData.userId);
+        }
+
+        // Format product IDs in order items
+        if (orderData.items && Array.isArray(orderData.items)) {
+            orderData.items = orderData.items.map(item => ({
+                ...item,
+                product: formatId(item.product)
+            }));
+        }
+
+        const response = await API.post('/orders', orderData);
+        return response.data;
+    } catch (error) {
+        console.error('Error creating order:', error);
+        throw error;
+    }
 };
 
-export const updateOrderStatus = (orderId, statusData) => {
-    return API.put(`/orders/${orderId}`, statusData);
+// Get all orders (admin)
+export const getAllOrders = async () => {
+    try {
+        const response = await API.get('/orders/admin');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching all orders:', error);
+        throw error;
+    }
 };
 
-export const cancelOrder = (orderId) => {
-    return API.delete(`/orders/${orderId}`);
+// Get user orders
+export const getUserOrders = async (userId) => {
+    try {
+        const formattedId = formatId(userId);
+        const response = await API.get(`/orders/user/${formattedId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching user orders:', error);
+        throw error;
+    }
 };
 
-export const issueRefund = (orderId, refundData) => {
-    return API.post(`/orders/${orderId}/refund`, refundData);
+// Get order details
+export const getOrderById = async (orderId) => {
+    try {
+        const formattedId = formatId(orderId);
+        const response = await API.get(`/orders/${formattedId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching order ${orderId}:`, error);
+        throw error;
+    }
+};
+
+// Update order status (admin)
+export const updateOrderStatus = async (orderId, status) => {
+    try {
+        const formattedId = formatId(orderId);
+        const response = await API.put(`/orders/${formattedId}/status`, { status });
+        return response.data;
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        throw error;
+    }
+};
+
+// Get recent orders (admin)
+export const getRecentOrders = async (limit = 10) => {
+    try {
+        const response = await API.get(`/orders/admin/recent?limit=${limit}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching recent orders:', error);
+        throw error;
+    }
 };

@@ -43,6 +43,7 @@ import { addToCart } from '../services/cartService';
 import { getProductById } from '../services/productService';
 import { addReview, getReviews } from '../services/reviewService';
 import { formatImageUrl } from '../utils/imageUtils';
+import { getWishlist, addToWishlist, removeFromWishlist } from '../services/wishlistService';
 
 const Item = () => {
     const { id } = useParams();
@@ -77,26 +78,72 @@ const Item = () => {
         const fetchProduct = async () => {
             try {
                 setLoading(true);
+                console.log("Fetching product with ID:", id);
                 const response = await getProductById(id);
+                console.log("Product API response:", response);
 
-                if (response.data && response.data.data) {
+                if (response && response.data) {
                     // Initialize product data, ensuring images is an array
-                    const productData = response.data.data;
+                    let productData;
+
+                    // Handle different response structures
+                    if (response.data.data) {
+                        productData = response.data.data;
+                        console.log("Found product in response.data.data");
+                    } else {
+                        productData = response.data;
+                        console.log("Found product in response.data");
+                    }
+
+                    // Ensure product has an images array
                     if (!Array.isArray(productData.images)) {
                         productData.images = productData.image_url ? [productData.image_url] : [];
                     }
+
+                    console.log("Processed product data:", productData);
                     setProduct(productData);
 
                     // Check if user is logged in to enable review submission
-                    setIsUserLoggedIn(!!localStorage.getItem('userId'));
+                    const userId = localStorage.getItem('userId');
+                    setIsUserLoggedIn(!!userId);
+
+                    // Check if this item is in the user's wishlist
+                    if (userId) {
+                        try {
+                            const wishlistResponse = await getWishlist(userId);
+                            if (wishlistResponse && wishlistResponse.data) {
+                                const wishlistItems = Array.isArray(wishlistResponse.data) ?
+                                    wishlistResponse.data :
+                                    (wishlistResponse.data.data || []);
+
+                                // Check if current product is in wishlist using multiple potential ID fields
+                                const isInWishlist = wishlistItems.some(
+                                    item =>
+                                        (item.id === productData.id) ||
+                                        (item._id === productData._id) ||
+                                        (item.product_id === productData.id) ||
+                                        (item.product_id === productData._id) ||
+                                        (item.product && (item.product._id === productData._id || item.product.id === productData.id))
+                                );
+                                setIsFavorite(isInWishlist);
+                            }
+                        } catch (wishlistError) {
+                            console.error('Error checking wishlist status:', wishlistError);
+                        }
+                    }
+
                     // Fetch reviews for the product
                     fetchReviews(id);
                 } else {
+                    console.error("Invalid product response format:", response);
                     setError('Product information not available');
                 }
             } catch (error) {
                 console.error('Error fetching product:', error);
-                setError('Failed to load product details');
+                if (error.response) {
+                    console.error('Server response error:', error.response.status, error.response.data);
+                }
+                setError('Failed to load product details. The product may not exist or has been removed.');
             } finally {
                 setLoading(false);
             }
@@ -104,6 +151,9 @@ const Item = () => {
 
         if (id) {
             fetchProduct();
+        } else {
+            setError('Invalid product ID');
+            setLoading(false);
         }
     }, [id]);
 
@@ -237,8 +287,49 @@ const Item = () => {
         }
     };
 
-    const toggleFavorite = () => {
-        setIsFavorite(!isFavorite);
+    const toggleFavorite = async () => {
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
+            // User is not logged in, navigate to sign in
+            setSnackbarOpen(true);
+            setSnackbarMessage('Please sign in to manage your wishlist');
+            setSnackbarSeverity('warning');
+            navigate('/signin', { state: { from: location.pathname } });
+            return;
+        }
+
+        try {
+            setIsFavorite(!isFavorite);
+
+            if (isFavorite) {
+                // Remove from wishlist - explicitly passing userId first, productId second
+                await removeFromWishlist(userId, product._id || product.id);
+                setSnackbarMessage('Removed from your wishlist');
+            } else {
+                // Add to wishlist - explicitly passing userId first, productId second
+                await addToWishlist(userId, product._id || product.id);
+                setSnackbarMessage('Added to your wishlist');
+            }
+
+            // Refresh wishlist status
+            const updatedWishlist = await getWishlist(userId);
+            // Check if the product is in the updated wishlist
+            const isInWishlist = updatedWishlist.data.some(item =>
+                (item.product_id === (product._id || product.id)) ||
+                (item._id === (product._id || product.id)) ||
+                (item.product && (item.product._id === (product._id || product.id)))
+            );
+            setIsFavorite(isInWishlist);
+
+            // Show success message
+            setSnackbarOpen(true);
+            setSnackbarSeverity('success');
+        } catch (error) {
+            console.error('Error updating wishlist:', error);
+            setSnackbarOpen(true);
+            setSnackbarMessage('Failed to update wishlist. Please try again.');
+            setSnackbarSeverity('error');
+        }
     };
 
     const handleAddToCart = async () => {
@@ -259,7 +350,7 @@ const Item = () => {
 
             await addToCart({
                 userId,
-                productId: product.id,
+                productId: product._id || product.id,
                 quantity,
                 size: selectedSize,
                 color: selectedColorName

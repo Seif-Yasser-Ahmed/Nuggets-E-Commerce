@@ -2,26 +2,24 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken, authenticateAdmin } = require('../middlewares/authMiddleware');
 const {
-    create,
-    getById,
-    getByUser,
-    getAll,
-    updateStatus,
-    getByStatus,
-    getStats,
-    delete: deleteOrder
+    createOrder,
+    getOrderById,
+    getUserOrders,
+    getAllOrders,
+    updateOrderStatus,
+    getRecentOrders,
+    getOrderStats
 } = require('../controllers/orderController');
 
 // Customer routes (requires authentication)
-router.post('/', authenticateToken, create);
-router.get('/user/:userId', authenticateToken, getByUser);
+router.post('/', authenticateToken, createOrder);
+router.get('/user/:userId', authenticateToken, getUserOrders);
 
 // Admin routes
-router.get('/', authenticateAdmin, getAll);
-router.get('/stats', authenticateAdmin, getStats);
-router.get('/status/:status', authenticateAdmin, getByStatus);
-router.get('/:id', authenticateAdmin, getById);
-router.put('/:id/status', authenticateAdmin, updateStatus);
-router.delete('/:id', authenticateAdmin, deleteOrder);
+router.get('/', authenticateAdmin, getAllOrders);
+router.get('/recent', authenticateAdmin, getRecentOrders);
+router.get('/stats', authenticateAdmin, getOrderStats);
+router.get('/:orderId', authenticateToken, getOrderById);
+router.put('/:orderId/status', authenticateAdmin, updateOrderStatus);
 
 module.exports = router;

@@ -1,144 +1,214 @@
-const db = require('../db');
+const Cart = require('../models/cartModel');
+const Product = require('../models/productModel');
+const mongoose = require('mongoose');
 
 // Get user's cart
-exports.getCart = (req, res) => {
-    const userId = req.params.userId;
+exports.getCart = async (req, res) => {
+    try {
+        const userId = req.params.userId;
 
-    // Simple query to get cart items for a user
-    const query = `
-        SELECT c.id, c.product_id, p.name, p.price, p.image_url, c.quantity 
-        FROM cart c
-        JOIN product p ON c.product_id = p.id
-        WHERE c.user_id = ?
-    `;
-
-    db.query(query, [userId], (err, results) => {
-        if (err) {
-            console.error('Error fetching cart:', err);
-            return res.status(500).json({ success: false, error: 'Error retrieving cart' });
+        // Validate userId to prevent CastError
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid user ID'
+            });
         }
+
+        // Find cart and populate product details
+        const cart = await Cart.findOne({ user: userId })
+            .populate({
+                path: 'items.product',
+                select: 'name price image_url'
+            });
+
+        if (!cart) {
+            return res.status(200).json({
+                success: true,
+                data: [],
+                total: 0
+            });
+        }
+
+        // Calculate total
+        let total = 0;
+        const cartItems = cart.items.map(item => {
+            const subtotal = item.product.price * item.quantity;
+            total += subtotal;
+
+            return {
+                id: item._id,
+                product_id: item.product._id,
+                name: item.product.name,
+                price: item.product.price,
+                image_url: item.product.image_url,
+                quantity: item.quantity
+            };
+        });
 
         res.status(200).json({
             success: true,
-            data: results,
-            total: results.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+            data: cartItems,
+            total
         });
-    });
+    } catch (err) {
+        console.error('Error fetching cart:', err);
+        res.status(500).json({ success: false, error: 'Error retrieving cart' });
+    }
 };
 
 // Get cart item count
-exports.getCartCount = (req, res) => {
-    const userId = req.params.userId;
+exports.getCartCount = async (req, res) => {
+    try {
+        const userId = req.params.userId;
 
-    const query = `
-        SELECT SUM(quantity) as count
-        FROM cart
-        WHERE user_id = ?
-    `;
-    db.query(query, [userId], (err, results) => {
-        if (err) {
-            console.error('Error fetching cart count:', err);
-            return res.status(500).json({ success: false, error: 'Error retrieving cart count' });
+        // Validate userId to prevent CastError
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid user ID'
+            });
         }
 
-        const count = results[0].count || 0;
+        const cart = await Cart.findOne({ user: userId });
+        const count = cart ? cart.items.reduce((sum, item) => sum + item.quantity, 0) : 0;
+
         res.status(200).json({ success: true, data: { count } });
-    });
+    } catch (err) {
+        console.error('Error fetching cart count:', err);
+        res.status(500).json({ success: false, error: 'Error retrieving cart count' });
+    }
 };
 
 // Add item to cart
-exports.addToCart = (req, res) => {
-    const { userId, productId, quantity = 1 } = req.body;
+exports.addToCart = async (req, res) => {
+    try {
+        const { userId, productId, quantity = 1 } = req.body;
 
-    if (!userId || !productId) {
-        return res.status(400).json({ success: false, error: 'User ID and Product ID are required' });
-    }
-
-    // Check if the item already exists in cart
-    const checkQuery = 'SELECT id, quantity FROM cart WHERE user_id = ? AND product_id = ?';
-
-    db.query(checkQuery, [userId, productId], (err, results) => {
-        if (err) {
-            console.error('Error checking cart:', err);
-            return res.status(500).json({ success: false, error: 'Database error' });
+        if (!userId || !productId) {
+            return res.status(400).json({ success: false, error: 'User ID and Product ID are required' });
         }
 
-        if (results.length > 0) {
-            // Update existing cart item
-            const cartItemId = results[0].id;
-            const newQuantity = results[0].quantity + quantity;
-
-            const updateQuery = 'UPDATE cart SET quantity = ? WHERE id = ?';
-
-            db.query(updateQuery, [newQuantity, cartItemId], (err, result) => {
-                if (err) {
-                    console.error('Error updating cart:', err);
-                    return res.status(500).json({ success: false, error: 'Failed to update cart' });
-                }
-
-                res.status(200).json({ success: true, message: 'Cart updated successfully' });
+        // Validate userId and productId to prevent CastError
+        if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid User ID or Product ID format'
             });
+        }
+
+        // Find the product to ensure it exists
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({ success: false, error: 'Product not found' });
+        }
+
+        // Find or create user's cart
+        let cart = await Cart.findOne({ user: userId });
+
+        if (!cart) {
+            // Create new cart
+            cart = new Cart({
+                user: userId,
+                items: [{ product: productId, quantity }]
+            });
+            await cart.save();
+            return res.status(201).json({ success: true, message: 'Product added to cart' });
+        }
+
+        // Check if product already exists in cart
+        const existingItemIndex = cart.items.findIndex(
+            item => item.product.toString() === productId
+        );
+
+        if (existingItemIndex > -1) {
+            // Update existing item quantity
+            cart.items[existingItemIndex].quantity += quantity;
         } else {
-            // Insert new cart item
-            const insertQuery = 'INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)';
-
-            db.query(insertQuery, [userId, productId, quantity], (err, result) => {
-                if (err) {
-                    console.error('Error adding to cart:', err);
-                    return res.status(500).json({ success: false, error: 'Failed to add to cart' });
-                }
-
-                res.status(201).json({
-                    success: true,
-                    message: 'Added to cart successfully',
-                    data: { id: result.insertId }
-                });
-            });
+            // Add new item to cart
+            cart.items.push({ product: productId, quantity });
         }
-    });
+
+        await cart.save();
+        res.status(200).json({ success: true, message: 'Cart updated successfully' });
+    } catch (err) {
+        console.error('Error adding to cart:', err);
+        res.status(500).json({ success: false, error: 'Failed to update cart' });
+    }
 };
 
 // Update cart item
-exports.updateCartItem = (req, res) => {
-    const cartItemId = req.params.cartItemId;
-    const { quantity } = req.body;
+exports.updateCartItem = async (req, res) => {
+    try {
+        const cartItemId = req.params.cartItemId;
+        const { quantity } = req.body;
 
-    if (!quantity) {
-        return res.status(400).json({ success: false, error: 'Quantity is required' });
-    }
-
-    const query = 'UPDATE cart SET quantity = ? WHERE id = ?';
-
-    db.query(query, [quantity, cartItemId], (err, result) => {
-        if (err) {
-            console.error('Error updating cart item:', err);
-            return res.status(500).json({ success: false, error: 'Failed to update cart item' });
+        if (!quantity || quantity < 1) {
+            return res.status(400).json({ success: false, error: 'Valid quantity is required' });
         }
 
-        if (result.affectedRows === 0) {
+        // Get userId from JWT token and validate
+        const userId = req.user.id;
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, error: 'Invalid user ID' });
+        }
+
+        // Validate cartItemId
+        if (!cartItemId || !mongoose.Types.ObjectId.isValid(cartItemId)) {
+            return res.status(400).json({ success: false, error: 'Invalid cart item ID' });
+        }
+
+        // Find the user's cart
+        const cart = await Cart.findOne({ user: userId });
+        if (!cart) {
+            return res.status(404).json({ success: false, error: 'Cart not found' });
+        }
+
+        // Find the specific item
+        const cartItem = cart.items.id(cartItemId);
+        if (!cartItem) {
             return res.status(404).json({ success: false, error: 'Cart item not found' });
         }
 
-        res.status(200).json({ success: true, message: 'Cart item updated successfully' });
-    });
+        // Update quantity
+        cartItem.quantity = quantity;
+        await cart.save();
+
+        res.status(200).json({ success: true, message: 'Cart item updated' });
+    } catch (err) {
+        console.error('Error updating cart item:', err);
+        res.status(500).json({ success: false, error: 'Failed to update cart item' });
+    }
 };
 
 // Remove cart item
-exports.removeCartItem = (req, res) => {
-    const cartItemId = req.params.cartItemId;
+exports.removeCartItem = async (req, res) => {
+    try {
+        const cartItemId = req.params.cartItemId;
+        const userId = req.user.id; // Get from JWT token
 
-    const query = 'DELETE FROM cart WHERE id = ?';
-
-    db.query(query, [cartItemId], (err, result) => {
-        if (err) {
-            console.error('Error removing cart item:', err);
-            return res.status(500).json({ success: false, error: 'Failed to remove cart item' });
+        // Validate userId and cartItemId to prevent CastError
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, error: 'Invalid user ID' });
         }
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, error: 'Cart item not found' });
+        if (!cartItemId || !mongoose.Types.ObjectId.isValid(cartItemId)) {
+            return res.status(400).json({ success: false, error: 'Invalid cart item ID' });
         }
 
-        res.status(200).json({ success: true, message: 'Cart item removed successfully' });
-    });
+        // Find the user's cart
+        const cart = await Cart.findOne({ user: userId });
+        if (!cart) {
+            return res.status(404).json({ success: false, error: 'Cart not found' });
+        }
+
+        // Remove the item from cart
+        cart.items = cart.items.filter(item => item._id.toString() !== cartItemId);
+        await cart.save();
+
+        res.status(200).json({ success: true, message: 'Item removed from cart' });
+    } catch (err) {
+        console.error('Error removing cart item:', err);
+        res.status(500).json({ success: false, error: 'Failed to remove cart item' });
+    }
 };

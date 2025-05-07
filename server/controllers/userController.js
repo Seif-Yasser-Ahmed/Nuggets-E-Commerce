@@ -1,293 +1,323 @@
-const { getUserById, getAllUsers, deleteUser, updateUser, updateUserSocialLinks, updateUserProfileImage, updateUserAdminStatus } = require('../models/userModel');
+const User = require('../models/userModel');
+const Wishlist = require('../models/wishlistModel');
+const Review = require('../models/reviewModel');
+const Cart = require('../models/cartModel');
+const Order = require('../models/orderModel');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcrypt');
-const db = require('../db'); // Add db connection
+const mongoose = require('mongoose');
 const saltRounds = 10;
 
-exports.getProfile = (req, res) => {
-    const userId = req.params.id;
-    getUserById(userId, (err, results) => {
-        if (err) return res.status(500).json({ success: false, error: 'Error retrieving profile' });
-        if (results.length === 0) return res.status(404).json({ success: false, message: 'User not found' });
-        res.status(200).json({ success: true, data: results[0] });
-    });
-};
+// Get user profile
+exports.getProfile = async (req, res) => {
+    try {
+        const userId = req.params.id;
 
-exports.updateProfile = (req, res) => {
-    const userId = req.params.id;
-    const userData = req.body;
-
-    updateUser(userId, userData, (err, result) => {
-        if (err) {
-            console.error('Error updating profile:', err);
-            return res.status(500).json({ success: false, error: 'Error updating profile' });
+        // Validate userId to prevent CastError
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid user ID format'
+            });
         }
 
-        if (result.affectedRows === 0) {
+        const user = await User.findById(userId).select('-password');
+
+        if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
-        res.status(200).json({ success: true, message: 'Profile updated successfully' });
-    });
+
+        res.status(200).json({ success: true, data: user });
+    } catch (err) {
+        console.error('Error retrieving profile:', err);
+        res.status(500).json({ success: false, error: 'Error retrieving profile' });
+    }
 };
 
-exports.updateSocialLinks = (req, res) => {
-    const userId = req.params.id;
-    const { socialLinks } = req.body;
+// Update user profile
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const userData = req.body;
 
-    if (!socialLinks) {
-        return res.status(400).json({ success: false, message: 'Social links data is required' });
-    }
-
-    // Convert socialLinks object to JSON string for storage
-    const socialLinksJson = JSON.stringify(socialLinks);
-
-    updateUserSocialLinks(userId, socialLinksJson, (err, result) => {
-        if (err) {
-            console.error('Error updating social links:', err);
-            return res.status(500).json({ success: false, error: 'Error updating social links' });
+        // Validate userId to prevent CastError
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid user ID format'
+            });
         }
 
-        if (result.affectedRows === 0) {
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            {
+                first_name: userData.first_name,
+                last_name: userData.last_name,
+                email: userData.email,
+                telephone: userData.telephone,
+                location: userData.location,
+                bio: userData.bio,
+                occupation: userData.occupation,
+                birthday: userData.birthday
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.status(200).json({ success: true, message: 'Profile updated successfully' });
+    } catch (err) {
+        console.error('Error updating profile:', err);
+        res.status(500).json({ success: false, error: 'Error updating profile' });
+    }
+};
+
+// Update user social links
+exports.updateSocialLinks = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { socialLinks } = req.body;
+
+        // Validate userId to prevent CastError
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid user ID format'
+            });
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { social_links: socialLinks },
+            { new: true }
+        );
+
+        if (!updatedUser) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
         res.status(200).json({ success: true, message: 'Social links updated successfully' });
-    });
+    } catch (err) {
+        console.error('Error updating social links:', err);
+        res.status(500).json({ success: false, error: 'Error updating social links' });
+    }
 };
 
-// Setup storage for file uploads
+// Configure storage for profile images
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadDir = path.join(__dirname, '../uploads/profiles');
-        // Create directory if it doesn't exist
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
         cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
-        cb(null, `user_${req.params.id}_${Date.now()}${path.extname(file.originalname)}`);
+        const userId = req.params.id;
+        const timestamp = Date.now();
+        const ext = path.extname(file.originalname);
+        cb(null, `user_${userId}_${timestamp}${ext}`);
     }
 });
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB file size limit
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: function (req, file, cb) {
         const filetypes = /jpeg|jpg|png|gif/;
-        const mimetype = filetypes.test(file.mimetype);
         const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
 
         if (mimetype && extname) {
             return cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed!'));
         }
-        cb(new Error('Only image files are allowed!'));
     }
 }).single('image');
 
+// Update profile image
 exports.updateProfileImage = (req, res) => {
-    const userId = req.params.id;
-
-    upload(req, res, function (err) {
+    upload(req, res, async function (err) {
         if (err) {
-            console.error('Error uploading image:', err);
+            console.error('Error uploading file:', err);
             return res.status(400).json({ success: false, error: err.message });
         }
 
-        if (!req.file) {
-            return res.status(400).json({ success: false, error: 'No image file provided' });
-        }
+        try {
+            const userId = req.params.id;
 
-        const imageUrl = `/uploads/profiles/${req.file.filename}`;
-
-        updateUserProfileImage(userId, imageUrl, (err, result) => {
-            if (err) {
-                console.error('Error updating profile image in database:', err);
-                return res.status(500).json({ success: false, error: 'Error updating profile image' });
+            // Validate userId to prevent CastError
+            if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid user ID format'
+                });
             }
 
-            if (result.affectedRows === 0) {
+            if (!req.file) {
+                return res.status(400).json({ success: false, error: 'No file uploaded' });
+            }
+
+            const filePath = `/uploads/profiles/${req.file.filename}`;
+
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                { personal_image: filePath },
+                { new: true }
+            );
+
+            if (!updatedUser) {
                 return res.status(404).json({ success: false, message: 'User not found' });
             }
 
-            res.status(200).json({
-                success: true,
-                message: 'Profile image updated successfully',
-                data: { imageUrl }
-            });
+            res.status(200).json({ success: true, data: { image_url: filePath } });
+        } catch (err) {
+            console.error('Error updating profile image:', err);
+            res.status(500).json({ success: false, error: 'Failed to update profile image' });
+        }
+    });
+};
+
+// Get all users (admin only)
+exports.getAll = async (req, res) => {
+    try {
+        const users = await User.find()
+            .select('_id username email first_name last_name telephone isAdmin created_at');
+
+        // Transform the data to ensure each document has both _id and id fields to maintain compatibility
+        const transformedUsers = users.map(user => {
+            const userObj = user.toObject();
+            userObj.id = userObj._id; // Add 'id' field that references the _id field
+            return userObj;
         });
-    });
+
+        console.log('Users retrieved for admin:', transformedUsers.length);
+        res.status(200).json({ success: true, data: transformedUsers });
+    } catch (err) {
+        console.error('Error retrieving users:', err);
+        res.status(500).json({ success: false, error: 'Error retrieving users' });
+    }
 };
 
-exports.getAll = (req, res) => {
-    getAllUsers((err, results) => {
-        if (err) return res.status(500).json({ success: false, error: 'Error retrieving users' });
-        res.status(200).json({ success: true, data: results });
-    });
-};
+// Delete a user
+exports.remove = async (req, res) => {
+    try {
+        const userId = req.params.id;
 
-exports.remove = (req, res) => {
-    const userId = req.params.id;
-
-    // Log the deletion attempt for debugging
-    console.log(`Attempting to delete user with ID: ${userId}`);
-
-    // First check if the user exists
-    const checkUserQuery = 'SELECT username FROM user WHERE id = ?';
-    db.query(checkUserQuery, [userId], (err, results) => {
-        if (err) {
-            console.error('Error checking user existence:', err);
-            return res.status(500).json({ success: false, error: 'Error checking user existence' });
-        }
-
-        if (results.length === 0) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-
-        const username = results[0].username;
-
-        // Delete the user's associated data first
-        // This ensures all foreign key relationships are properly handled
-
-        // 1. Delete user's wishlist items
-        const deleteWishlistQuery = 'DELETE wi FROM wishlist_item wi JOIN wishlist w ON wi.wishlist_id = w.id WHERE w.user_id = ?';
-        db.query(deleteWishlistQuery, [userId], (err) => {
-            if (err) {
-                console.error('Error deleting wishlist items:', err);
-                return res.status(500).json({ success: false, error: 'Error deleting wishlist items' });
-            }
-
-            // 2. Delete user's wishlist
-            const deleteWishlistTableQuery = 'DELETE FROM wishlist WHERE user_id = ?';
-            db.query(deleteWishlistTableQuery, [userId], (err) => {
-                if (err) {
-                    console.error('Error deleting wishlist:', err);
-                    return res.status(500).json({ success: false, error: 'Error deleting wishlist' });
-                }
-
-                // 3. Delete user's cart items
-                const deleteCartQuery = 'DELETE FROM cart WHERE user_id = ?';
-                db.query(deleteCartQuery, [userId], (err) => {
-                    if (err) {
-                        console.error('Error deleting cart items:', err);
-                        return res.status(500).json({ success: false, error: 'Error deleting cart items' });
-                    }
-
-                    // 4. Delete user's reviews
-                    const deleteReviewsQuery = 'DELETE FROM reviews WHERE user_id = ?';
-                    db.query(deleteReviewsQuery, [userId], (err) => {
-                        if (err) {
-                            console.error('Error deleting reviews:', err);
-                            return res.status(500).json({ success: false, error: 'Error deleting reviews' });
-                        }
-
-                        // Finally, delete the user
-                        const deleteUserQuery = 'DELETE FROM user WHERE id = ?';
-                        db.query(deleteUserQuery, [userId], (err, result) => {
-                            if (err) {
-                                console.error('Error deleting user:', err);
-                                return res.status(500).json({ success: false, error: 'Error deleting user' });
-                            }
-
-                            if (result.affectedRows === 0) {
-                                return res.status(404).json({ success: false, message: 'User not found' });
-                            }
-
-                            console.log(`User ${username} (ID: ${userId}) successfully deleted`);
-                            res.status(200).json({ success: true, message: 'User deleted successfully' });
-                        });
-                    });
-                });
+        // Validate userId to prevent CastError
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid user ID format'
             });
+        }
+
+        // Get user to log their username
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const username = user.username;
+        console.log(`Attempting to delete user with ID: ${userId}`);
+
+        // Delete user's associated data
+        // 1. Delete user's wishlist
+        await Wishlist.deleteOne({ user: userId });
+
+        // 2. Delete user's cart
+        await Cart.deleteOne({ user: userId });
+
+        // 3. Delete user's reviews
+        await Review.deleteMany({ user: userId });
+
+        // 4. Delete the user
+        await User.findByIdAndDelete(userId);
+
+        console.log(`User ${username} (ID: ${userId}) successfully deleted`);
+        res.status(200).json({ success: true, message: 'User deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting user:', err);
+        res.status(500).json({ success: false, error: 'Error deleting user' });
+    }
+};
+
+// Update user admin status
+exports.updateAdminStatus = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { isAdmin } = req.body;
+
+        // Validate userId to prevent CastError
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid user ID format'
+            });
+        }
+
+        console.log('Setting isAdmin to:', isAdmin, 'for user ID:', userId);
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { isAdmin: isAdmin },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `User admin status updated to ${isAdmin ? 'admin' : 'regular user'}`
         });
-    });
+    } catch (err) {
+        console.error('Error updating admin status:', err);
+        res.status(500).json({ success: false, error: 'Error updating admin status' });
+    }
 };
 
-exports.updateAdminStatus = (req, res) => {
-    const userId = req.params.id;
-    const { isAdmin } = req.body;
+// Update user password
+exports.updatePassword = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { currentPassword, newPassword } = req.body;
 
-    console.log('Updating admin status for user:', userId);
-    console.log('isAdmin value received:', isAdmin);
-
-    if (isAdmin === undefined) {
-        console.log('isAdmin field is missing');
-        return res.status(400).json({ success: false, message: 'isAdmin field is required' });
-    }
-
-    updateUserAdminStatus(userId, isAdmin, (err, result) => {
-        if (err) {
-            console.error('Error updating admin status:', err);
-            return res.status(500).json({ success: false, error: 'Error updating admin status' });
+        // Validate userId to prevent CastError
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid user ID format'
+            });
         }
 
-        console.log('Update result:', result);
-
-        if (result.affectedRows === 0) {
+        // Get user with password included
+        const user = await User.findById(userId);
+        if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
-
-        res.status(200).json({ success: true, message: 'Admin status updated successfully' });
-    });
-};
-
-exports.updatePassword = (req, res) => {
-    const userId = req.params.id;
-    const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-        return res.status(400).json({ success: false, message: 'Current password and new password are required' });
-    }
-
-    // First get the user to verify current password
-    const getUserQuery = 'SELECT password FROM user WHERE id = ?';
-    db.query(getUserQuery, [userId], (err, results) => {
-        if (err) {
-            console.error('Error fetching user for password update:', err);
-            return res.status(500).json({ success: false, error: 'Database error' });
-        }
-
-        if (results.length === 0) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-
-        const storedHashedPassword = results[0].password;
 
         // Verify current password
-        bcrypt.compare(currentPassword, storedHashedPassword, (err, isMatch) => {
-            if (err) {
-                console.error('Error comparing passwords:', err);
-                return res.status(500).json({ success: false, error: 'Password verification error' });
-            }
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+        }
 
-            if (!isMatch) {
-                return res.status(401).json({ success: false, message: 'Current password is incorrect' });
-            }
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-            // Hash the new password
-            bcrypt.hash(newPassword, saltRounds, (err, hash) => {
-                if (err) {
-                    console.error('Error hashing new password:', err);
-                    return res.status(500).json({ success: false, error: 'Error hashing new password' });
-                }
+        // Update the password
+        await User.findByIdAndUpdate(userId, { password: hashedPassword });
 
-                // Update the password in the database
-                const updateQuery = 'UPDATE user SET password = ? WHERE id = ?';
-                db.query(updateQuery, [hash, userId], (err, result) => {
-                    if (err) {
-                        console.error('Error updating password:', err);
-                        return res.status(500).json({ success: false, error: 'Failed to update password' });
-                    }
-
-                    if (result.affectedRows === 0) {
-                        return res.status(404).json({ success: false, message: 'User not found' });
-                    }
-
-                    res.status(200).json({ success: true, message: 'Password updated successfully' });
-                });
-            });
-        });
-    });
+        res.status(200).json({ success: true, message: 'Password updated successfully' });
+    } catch (err) {
+        console.error('Error updating password:', err);
+        res.status(500).json({ success: false, error: 'Failed to update password' });
+    }
 };

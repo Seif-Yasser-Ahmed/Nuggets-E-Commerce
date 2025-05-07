@@ -39,10 +39,16 @@ function Users() {
     }, []);
 
     const fetchUsers = () => {
-        API.get('/admin/users')
+        API.get('/users')  // Changed from '/admin/users' to '/users' to match the route in userRoutes.js
             .then((res) => {
                 // assuming res.data.data contains objects with
                 // id, username, email, first_name, last_name, telephone, isAdmin, created_at
+                console.log('Users data from server:', res.data.data);
+                if (res.data.data.length > 0) {
+                    console.log('First user object:', res.data.data[0]);
+                    console.log('First user ID type:', typeof res.data.data[0]._id);
+                    console.log('First user ID value:', res.data.data[0]._id);
+                }
                 setUsers(res.data.data);
                 setLoading(false);
             })
@@ -55,9 +61,9 @@ function Users() {
 
     const handleDelete = (id) => {
         if (!window.confirm('Are you sure you want to delete this user?')) return;
-        API.delete(`/admin/users/${id}`)
+        API.delete(`/users/${id}`)  // Changed from '/admin/users/${id}' to '/users/${id}'
             .then(() => {
-                setUsers(users.filter((u) => u.id !== id));
+                setUsers(users.filter((u) => u.id !== id && u._id !== id));
                 showSnackbar('User deleted successfully', 'success');
             })
             .catch((err) => {
@@ -66,21 +72,76 @@ function Users() {
             });
     };
 
+    // Helper function to extract a valid ID from user object
+    const extractUserId = (user) => {
+        if (!user) return null;
+
+        // Try all possible ID properties
+        if (user._id) return user._id;
+        if (user.id) return user.id;
+        if (user._doc && user._doc._id) return user._doc._id;
+        
+        // Look for any property that might be an ID (contains 'id' in the key name)
+        for (const key in user) {
+            if ((key.includes('id') || key.includes('Id')) && 
+                typeof user[key] === 'string' && 
+                user[key].length > 8) {
+                console.log(`Found potential ID in property ${key}: ${user[key]}`);
+                return user[key];
+            }
+        }
+
+        // If the user object is stringifiable, log it for debugging
+        console.log('User object with missing ID:', JSON.stringify(user, null, 2));
+        return null;
+    };
+
     const handleMakeAdmin = (user) => {
-        setSelectedUser(user);
+        // Log the full user object to see its structure
+        console.log('User object received in handleMakeAdmin:', user);
+
+        // Extract the user ID
+        const userId = extractUserId(user);
+        if (!userId) {
+            console.error('Could not extract ID from user object:', user);
+            showSnackbar('Error: Could not identify user. Please refresh the page and try again.', 'error');
+            return;
+        }
+
+        console.log(`User identified with ID: ${userId}`);
+        
+        // Set the user in state for the confirmation dialog
+        setSelectedUser({ ...user, extractedId: userId });
         setConfirmDialogOpen(true);
     };
 
     const confirmMakeAdmin = () => {
         if (!selectedUser) return;
 
-        // Use the correct API endpoint that matches the server route
-        API.put(`/admin/users/${selectedUser.id}/admin-status`, { isAdmin: 1 })
-            .then(() => {
+        // Get the MongoDB ID using the extracted ID or fall back to other methods
+        const userId = selectedUser.extractedId || selectedUser._id || selectedUser.id;
+
+        if (!userId) {
+            console.error('User ID is missing:', selectedUser);
+            showSnackbar('Failed to update admin status: Missing user ID', 'error');
+            setConfirmDialogOpen(false);
+            return;
+        }
+
+        console.log(`Making user admin with ID: ${userId}`);
+
+        // Use the correct API endpoint with the MongoDB ID
+        API.put(`/users/${userId}/admin-status`, { isAdmin: true })
+            .then((response) => {
+                console.log('Admin status update response:', response.data);
+
                 // Update the user in the local state
-                const updatedUsers = users.map(user =>
-                    user.id === selectedUser.id ? { ...user, isAdmin: 1 } : user
-                );
+                const updatedUsers = users.map(user => {
+                    // Check all possible ID forms for matching
+                    const currentId = extractUserId(user);
+                    return currentId === userId ? { ...user, isAdmin: true } : user;
+                });
+
                 setUsers(updatedUsers);
                 setConfirmDialogOpen(false);
                 showSnackbar(`${selectedUser.username} is now an admin`, 'success');
@@ -136,7 +197,7 @@ function Users() {
             ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {filteredUsers.map((user) => (
-                        <Card key={user.id} className="shadow-md flex items-center">
+                        <Card key={user._id || user.id} className="shadow-md flex items-center">
                             <CardContent className="w-full">
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-4">
@@ -146,7 +207,7 @@ function Users() {
                                         <div>
                                             <Typography variant="h6">{user.username}</Typography>
                                             <Typography variant="body2" className="text-gray-600">
-                                                ID: {user.id}
+                                                ID: {user._id || user.id || 'N/A'}
                                             </Typography>
                                             <Typography variant="body2">
                                                 Name: {user.first_name} {user.last_name}
@@ -181,7 +242,7 @@ function Users() {
                                             </IconButton>
                                         )}
                                         <IconButton
-                                            onClick={() => handleDelete(user.id)}
+                                            onClick={() => handleDelete(user._id || user.id)}
                                             aria-label="delete"
                                             className="text-red-600"
                                             color="error"

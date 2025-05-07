@@ -1,96 +1,70 @@
-const db = require('../db');
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-module.exports = {
-    createOrder: (order, callback) => {
-        const { user_id, total_amount, shipping_address, payment_method, status } = order;
-        const query = `
-            INSERT INTO orders (user_id, total_amount, shipping_address, payment_method, status, created_at)
-            VALUES (?, ?, ?, ?, ?, NOW())
-        `;
-        db.query(query, [user_id, total_amount, JSON.stringify(shipping_address), payment_method, status], callback);
+// Define Order Items Schema (used as a subdocument)
+const orderItemSchema = new Schema({
+    product: {
+        type: Schema.Types.ObjectId,
+        ref: 'Product',
+        required: true
     },
-
-    addOrderItem: (orderItem, callback) => {
-        const { order_id, product_id, quantity, price } = orderItem;
-        const query = `
-            INSERT INTO order_items (order_id, product_id, quantity, price)
-            VALUES (?, ?, ?, ?)
-        `;
-        db.query(query, [order_id, product_id, quantity, price], callback);
+    name: String,
+    price: {
+        type: Number,
+        required: true
     },
-
-    getOrderById: (id, callback) => {
-        const query = `
-            SELECT o.*, u.username, u.email 
-            FROM orders o
-            JOIN user u ON o.user_id = u.id
-            WHERE o.id = ?
-        `;
-        db.query(query, [id], callback);
+    quantity: {
+        type: Number,
+        required: true,
+        min: 1
     },
+    image_url: String
+});
 
-    getOrderItems: (orderId, callback) => {
-        const query = `
-            SELECT oi.*, p.name, p.image_url
-            FROM order_items oi
-            JOIN product p ON oi.product_id = p.id
-            WHERE oi.order_id = ?
-        `;
-        db.query(query, [orderId], callback);
+// Define the main Order Schema
+const orderSchema = new Schema({
+    user: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
     },
-
-    getOrdersByUser: (userId, callback) => {
-        const query = 'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC';
-        db.query(query, [userId], callback);
+    // Legacy field - for migration compatibility
+    user_id: {
+        type: Number
     },
-
-    getAllOrders: (callback) => {
-        const query = `
-            SELECT o.*, u.username, u.email
-            FROM orders o
-            JOIN user u ON o.user_id = u.id
-            ORDER BY o.created_at DESC
-        `;
-        db.query(query, callback);
+    items: [orderItemSchema],
+    total_amount: {
+        type: Number,
+        required: true
     },
-
-    updateOrderStatus: (id, status, callback) => {
-        const query = 'UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?';
-        db.query(query, [status, id], callback);
+    shipping_address: {
+        fullName: String,
+        street: String,
+        address: String,
+        city: String,
+        state: String,
+        zip: String,
+        country: String,
+        phone: String
     },
-
-    getOrdersByStatus: (status, callback) => {
-        const query = `
-            SELECT o.*, u.username, u.email
-            FROM orders o
-            JOIN user u ON o.user_id = u.id
-            WHERE o.status = ?
-            ORDER BY o.created_at DESC
-        `;
-        db.query(query, [status], callback);
+    payment_method: {
+        type: String,
+        required: true
     },
-
-    getOrderStats: (callback) => {
-        const query = `
-            SELECT 
-                status, 
-                COUNT(*) as count,
-                SUM(total_amount) as total
-            FROM orders
-            GROUP BY status
-        `;
-        db.query(query, callback);
-    },
-
-    deleteOrder: (id, callback) => {
-        // First delete related order items
-        const deleteItemsQuery = 'DELETE FROM order_items WHERE order_id = ?';
-        db.query(deleteItemsQuery, [id], (err) => {
-            if (err) return callback(err);
-
-            // Then delete the order
-            const deleteOrderQuery = 'DELETE FROM orders WHERE id = ?';
-            db.query(deleteOrderQuery, [id], callback);
-        });
+    status: {
+        type: String,
+        enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+        default: 'pending'
     }
-};
+}, {
+    timestamps: {
+        createdAt: 'created_at',
+        updatedAt: 'updated_at'
+    },
+    // Important: This allows for both legacy numeric _id and new ObjectId _id
+    _id: {
+        type: Schema.Types.Mixed
+    }
+});
+
+module.exports = mongoose.model('Order', orderSchema);

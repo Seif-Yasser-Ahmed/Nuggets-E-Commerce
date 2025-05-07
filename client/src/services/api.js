@@ -1,43 +1,75 @@
 // client/src/services/api.js
 import axios from 'axios';
 
-const API = axios.create({
-    baseURL: 'http://localhost:5000/api/v1',
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+
+// Create an axios instance with base URL
+const api = axios.create({
+    baseURL: API_URL
 });
 
-// 🔐 Attach JWT token to every request (if exists)
-API.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-}, (error) => {
-    return Promise.reject(error);
-});
-
-// Handle response errors, particularly token expiration (403 errors)
-API.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        // Check specifically for token errors (403 Forbidden with "Invalid or expired token" message)
-        if (error.response &&
-            error.response.status === 403 &&
-            error.response.data?.message === 'Invalid or expired token') {
-
-            // Clear authentication data
-            localStorage.removeItem('token');
-            localStorage.removeItem('userId');
-            localStorage.removeItem('username');
-            localStorage.removeItem('isAdmin');
-            localStorage.removeItem('user');
-
-            // Create and dispatch an event to notify the app of logout
-            window.dispatchEvent(new Event('auth-error'));
+// Request interceptor to add authorization header
+api.interceptors.request.use(
+    config => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
         }
-
+        return config;
+    },
+    error => {
         return Promise.reject(error);
     }
 );
 
-export default API;
+// Response interceptor to handle common errors
+api.interceptors.response.use(
+    response => {
+        return response;
+    },
+    error => {
+        // Handle 401 Unauthorized responses
+        if (error.response && error.response.status === 401) {
+            // If not on login page and token exists, log out user
+            const isLoginPage = window.location.pathname.includes('signin');
+            const token = localStorage.getItem('token');
+
+            if (!isLoginPage && token) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/signin';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
+// Helper function to validate MongoDB ObjectId format
+export const isValidObjectId = (id) => {
+    const objectIdPattern = /^[0-9a-fA-F]{24}$/;
+    return objectIdPattern.test(String(id));
+};
+
+// Helper function to ensure ID format is compatible with MongoDB
+export const formatId = (id) => {
+    if (!id) {
+        console.error('Attempted to format undefined or null ID');
+        return null;
+    }
+
+    // Convert to string first to handle all input types
+    const idString = String(id);
+
+    // If it's already a valid ObjectId string, return as is
+    if (isValidObjectId(idString)) {
+        return idString;
+    }
+
+    // For backward compatibility with numeric IDs, 
+    // you might want to use a placeholder ObjectId pattern or fetch the object first
+    // For now, we'll return the string but log a warning
+    console.warn(`ID ${idString} is not in valid MongoDB ObjectId format`);
+    return idString;
+};
+
+export default api;

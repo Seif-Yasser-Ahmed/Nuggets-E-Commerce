@@ -60,7 +60,7 @@ const Cart = () => {
             const details = {};
             if (data && data.data) {
                 data.data.forEach(product => {
-                    details[product.id] = product;
+                    details[product._id || product.id] = product;
                 });
             }
             return details;
@@ -82,8 +82,17 @@ const Cart = () => {
                 if (userId && token) {
                     // User is logged in, get cart from server
                     const response = await getCart(userId);
-                    if (response.data && response.data.success) {
-                        items = response.data.data || [];
+                    console.log("Cart response:", response);
+
+                    // Check different possible response structures
+                    if (response && response.data) {
+                        if (response.data.success && Array.isArray(response.data.data)) {
+                            items = response.data.data;
+                        } else if (Array.isArray(response.data)) {
+                            items = response.data;
+                        } else if (response.success && Array.isArray(response.data)) {
+                            items = response.data;
+                        }
                     }
                 } else {
                     // User is not logged in, get cart from local storage

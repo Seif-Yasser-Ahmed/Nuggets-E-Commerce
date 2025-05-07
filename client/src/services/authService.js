@@ -2,11 +2,11 @@
 import API from './api';
 
 export const signup = (userData) => {
-    return API.post('/users/signup', userData);
+    return API.post('/signup', userData);
 };
 
 export const signin = (credentials) => {
-    return API.post('/users/signin', credentials);
+    return API.post('/signin', credentials);
 };
 
 export const getProfile = (userId) => {

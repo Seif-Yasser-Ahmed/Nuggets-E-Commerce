@@ -261,7 +261,9 @@ const Checkout = () => {
                 orderItems: cartItems.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity,
-                    price: item.price
+                    price: item.price,
+                    name: item.name,
+                    image_url: item.image_url
                 }))
             };
 

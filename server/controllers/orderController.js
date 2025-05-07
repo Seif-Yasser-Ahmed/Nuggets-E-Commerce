@@ -1,257 +1,249 @@
-const {
-    createOrder,
-    addOrderItem,
-    getOrderById,
-    getOrderItems,
-    getOrdersByUser,
-    getAllOrders,
-    updateOrderStatus,
-    getOrdersByStatus,
-    getOrderStats,
-    deleteOrder
-} = require('../models/orderModel');
+const Order = require('../models/orderModel');
+const Product = require('../models/productModel');
+const Cart = require('../models/cartModel');
+const mongoose = require('mongoose');
 
 // Create a new order
-exports.create = (req, res) => {
-    const { order, orderItems } = req.body;
+exports.createOrder = async (req, res) => {
+    try {
+        const {
+            userId,
+            items,
+            totalAmount,
+            shippingAddress,
+            paymentMethod
+        } = req.body;
 
-    // First, create the order
-    createOrder(order, (err, result) => {
-        if (err) {
-            console.error('Error creating order:', err);
-            return res.status(500).json({ success: false, error: 'Error creating order' });
+        // Create new order
+        const newOrder = new Order({
+            user: userId,
+            items,
+            total_amount: totalAmount,
+            shipping_address: shippingAddress,
+            payment_method: paymentMethod,
+            status: 'pending'
+        });
+
+        // Save the order
+        const savedOrder = await newOrder.save();
+
+        // Update product stock
+        for (const item of items) {
+            await Product.findByIdAndUpdate(
+                item.product,
+                { $inc: { stock: -item.quantity } }
+            );
         }
 
-        // Get the new order ID
-        const orderId = result.insertId;
+        // Clear the user's cart
+        await Cart.findOneAndUpdate(
+            { user: userId },
+            { $set: { items: [] } }
+        );
 
-        // If there are no order items, return success
-        if (!orderItems || orderItems.length === 0) {
-            return res.status(201).json({
-                success: true,
-                message: 'Order created successfully (no items)',
-                orderId
+        res.status(201).json({
+            success: true,
+            message: 'Order created successfully',
+            orderId: savedOrder._id
+        });
+    } catch (err) {
+        console.error('Error creating order:', err);
+        res.status(500).json({ success: false, error: 'Failed to create order' });
+    }
+};
+
+// Get all orders (admin)
+exports.getAllOrders = async (req, res) => {
+    try {
+        const orders = await Order.find()
+            .populate('user', 'username email')
+            .sort({ created_at: -1 });
+
+        res.status(200).json({ success: true, data: orders });
+    } catch (err) {
+        console.error('Error retrieving orders:', err);
+        res.status(500).json({ success: false, error: 'Error retrieving orders' });
+    }
+};
+
+// Get user orders
+exports.getUserOrders = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        const orders = await Order.find({ user: userId })
+            .sort({ created_at: -1 });
+
+        res.status(200).json({ success: true, data: orders });
+    } catch (err) {
+        console.error('Error retrieving user orders:', err);
+        res.status(500).json({ success: false, error: 'Error retrieving orders' });
+    }
+};
+
+// Get order statistics (admin)
+exports.getOrderStats = async (req, res) => {
+    try {
+        // Count total orders
+        const totalOrders = await Order.countDocuments();
+
+        // Count orders by status
+        const statusCounts = await Order.aggregate([
+            {
+                $group: {
+                    _id: "$status",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Format status counts into a more usable object
+        const statusStats = {};
+        statusCounts.forEach(status => {
+            statusStats[status._id] = status.count;
+        });
+
+        // Get total revenue
+        const revenueData = await Order.aggregate([
+            {
+                $match: { status: { $ne: 'cancelled' } }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: "$total_amount" }
+                }
+            }
+        ]);
+
+        const totalRevenue = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
+
+        // Recent revenue data (last 7 days)
+        const lastWeek = new Date();
+        lastWeek.setDate(lastWeek.getDate() - 7);
+
+        const dailyRevenue = await Order.aggregate([
+            {
+                $match: {
+                    created_at: { $gte: lastWeek },
+                    status: { $ne: 'cancelled' }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: { format: "%Y-%m-%d", date: "$created_at" }
+                    },
+                    revenue: { $sum: "$total_amount" }
+                }
+            },
+            {
+                $sort: { _id: 1 }
+            }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                totalOrders,
+                statusStats,
+                totalRevenue,
+                dailyRevenue
+            }
+        });
+    } catch (err) {
+        console.error('Error retrieving order statistics:', err);
+        res.status(500).json({ success: false, error: 'Error retrieving order statistics' });
+    }
+};
+
+// Get order by ID
+exports.getOrderById = async (req, res) => {
+    try {
+        const orderId = req.params.orderId;
+
+        // Check if this is a special route rather than an ObjectId
+        if (orderId === 'stats') {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid order ID. Use /orders/stats for statistics.'
             });
         }
 
-        // Add each order item
-        let addedItems = 0;
-        const errors = [];
-
-        orderItems.forEach(item => {
-            const orderItem = {
-                order_id: orderId,
-                product_id: item.product_id,
-                quantity: item.quantity,
-                price: item.price
-            };
-
-            addOrderItem(orderItem, (err, result) => {
-                // If error adding this item, store the error
-                if (err) {
-                    console.error('Error adding order item:', err);
-                    errors.push(item.product_id);
-                }
-
-                addedItems++;
-
-                // If all items have been processed, send the response
-                if (addedItems === orderItems.length) {
-                    if (errors.length > 0) {
-                        return res.status(500).json({
-                            success: false,
-                            message: 'Order created but some items failed to add',
-                            orderId,
-                            errors
-                        });
-                    }
-
-                    res.status(201).json({
-                        success: true,
-                        message: 'Order and all items created successfully',
-                        orderId
-                    });
-                }
+        // Validate if orderId is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid order ID format. Must be a valid MongoDB ObjectId.'
             });
-        });
-    });
-};
-
-// Get an order by ID, including its items
-exports.getById = (req, res) => {
-    const orderId = req.params.id;
-
-    // First get the order details
-    getOrderById(orderId, (err, orderResults) => {
-        if (err) {
-            console.error('Error retrieving order:', err);
-            return res.status(500).json({ success: false, error: 'Error retrieving order' });
         }
 
-        if (orderResults.length === 0) {
+        const order = await Order.findById(orderId)
+            .populate({
+                path: 'items.product',
+                select: 'name image_url'
+            });
+
+        if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        // Parse shipping address if it's stored as a JSON string
-        const order = orderResults[0];
-        if (order.shipping_address && typeof order.shipping_address === 'string') {
-            try {
-                order.shipping_address = JSON.parse(order.shipping_address);
-            } catch (e) {
-                console.error('Error parsing shipping address:', e);
-            }
-        }
-
-        // Then get the order items
-        getOrderItems(orderId, (err, itemResults) => {
-            if (err) {
-                console.error('Error retrieving order items:', err);
-                return res.status(500).json({ success: false, error: 'Error retrieving order items' });
-            }
-
-            // Combine order with its items
-            order.items = itemResults;
-
-            res.status(200).json({ success: true, data: order });
-        });
-    });
-};
-
-// Get orders for a specific user
-exports.getByUser = (req, res) => {
-    const userId = req.params.userId;
-
-    getOrdersByUser(userId, (err, results) => {
-        if (err) {
-            console.error('Error retrieving user orders:', err);
-            return res.status(500).json({ success: false, error: 'Error retrieving user orders' });
-        }
-
-        // Parse shipping addresses
-        const orders = results.map(order => {
-            if (order.shipping_address && typeof order.shipping_address === 'string') {
-                try {
-                    order.shipping_address = JSON.parse(order.shipping_address);
-                } catch (e) {
-                    console.error(`Error parsing shipping address for order ${order.id}:`, e);
-                }
-            }
-            return order;
-        });
-
-        res.status(200).json({ success: true, data: orders });
-    });
-};
-
-// Get all orders (admin only)
-exports.getAll = (req, res) => {
-    getAllOrders((err, results) => {
-        if (err) {
-            console.error('Error retrieving orders:', err);
-            return res.status(500).json({ success: false, error: 'Error retrieving orders' });
-        }
-
-        // Parse shipping addresses
-        const orders = results.map(order => {
-            if (order.shipping_address && typeof order.shipping_address === 'string') {
-                try {
-                    order.shipping_address = JSON.parse(order.shipping_address);
-                } catch (e) {
-                    console.error(`Error parsing shipping address for order ${order.id}:`, e);
-                }
-            }
-            return order;
-        });
-
-        res.status(200).json({ success: true, data: orders });
-    });
-};
-
-// Update an order's status
-exports.updateStatus = (req, res) => {
-    const orderId = req.params.id;
-    const { status } = req.body;
-
-    // Validate status
-    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-        return res.status(400).json({
-            success: false,
-            message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
-        });
+        res.status(200).json({ success: true, data: order });
+    } catch (err) {
+        console.error('Error retrieving order:', err);
+        res.status(500).json({ success: false, error: 'Error retrieving order' });
     }
+};
 
-    updateOrderStatus(orderId, status, (err, result) => {
-        if (err) {
-            console.error('Error updating order status:', err);
-            return res.status(500).json({ success: false, error: 'Error updating order status' });
+// Update order status
+exports.updateOrderStatus = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { status } = req.body;
+
+        const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+            });
         }
 
-        if (result.affectedRows === 0) {
+        const updatedOrder = await Order.findByIdAndUpdate(
+            orderId,
+            { status },
+            { new: true }
+        );
+
+        if (!updatedOrder) {
             return res.status(404).json({ success: false, message: 'Order not found' });
         }
 
-        res.status(200).json({ success: true, message: 'Order status updated successfully' });
-    });
+        res.status(200).json({
+            success: true,
+            message: `Order status updated to ${status}`,
+            data: updatedOrder
+        });
+    } catch (err) {
+        console.error('Error updating order status:', err);
+        res.status(500).json({ success: false, error: 'Error updating order status' });
+    }
 };
 
-// Get orders by status
-exports.getByStatus = (req, res) => {
-    const status = req.params.status;
+// Get recent orders (admin)
+exports.getRecentOrders = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 10;
 
-    // Validate status
-    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-        return res.status(400).json({
-            success: false,
-            message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
-        });
-    }
-
-    getOrdersByStatus(status, (err, results) => {
-        if (err) {
-            console.error('Error retrieving orders by status:', err);
-            return res.status(500).json({ success: false, error: 'Error retrieving orders by status' });
-        }
-
-        // Parse shipping addresses
-        const orders = results.map(order => {
-            if (order.shipping_address && typeof order.shipping_address === 'string') {
-                try {
-                    order.shipping_address = JSON.parse(order.shipping_address);
-                } catch (e) {
-                    console.error(`Error parsing shipping address for order ${order.id}:`, e);
-                }
-            }
-            return order;
-        });
+        const orders = await Order.find()
+            .populate('user', 'username email')
+            .sort({ created_at: -1 })
+            .limit(limit);
 
         res.status(200).json({ success: true, data: orders });
-    });
-};
-
-// Get order statistics (admin only)
-exports.getStats = (req, res) => {
-    getOrderStats((err, results) => {
-        if (err) {
-            console.error('Error retrieving order statistics:', err);
-            return res.status(500).json({ success: false, error: 'Error retrieving order statistics' });
-        }
-
-        res.status(200).json({ success: true, data: results });
-    });
-};
-
-// Delete an order (admin only)
-exports.delete = (req, res) => {
-    const orderId = req.params.id;
-
-    deleteOrder(orderId, (err, result) => {
-        if (err) {
-            console.error('Error deleting order:', err);
-            return res.status(500).json({ success: false, error: 'Error deleting order' });
-        }
-
-        res.status(200).json({ success: true, message: 'Order deleted successfully' });
-    });
+    } catch (err) {
+        console.error('Error retrieving recent orders:', err);
+        res.status(500).json({ success: false, error: 'Error retrieving recent orders' });
+    }
 };

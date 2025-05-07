@@ -42,7 +42,12 @@ ChartJS.register(
 function Dashboard() {
     const [usersCount, setUsersCount] = useState(0);
     const [productsCount, setProductsCount] = useState(0);
-    const [orderStats, setOrderStats] = useState([]);
+    const [orderStats, setOrderStats] = useState({
+        totalOrders: 0,
+        statusStats: {},
+        totalRevenue: 0,
+        dailyRevenue: []
+    });
     const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
 
@@ -61,7 +66,16 @@ function Dashboard() {
 
                 // Fetch order statistics
                 const orderStatsResponse = await API.get('/orders/stats');
-                setOrderStats(orderStatsResponse.data.data || []);
+                console.log('Order stats response:', orderStatsResponse.data);
+
+                if (orderStatsResponse.data && orderStatsResponse.data.success) {
+                    setOrderStats(orderStatsResponse.data.data || {
+                        totalOrders: 0,
+                        statusStats: {},
+                        totalRevenue: 0,
+                        dailyRevenue: []
+                    });
+                }
 
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
@@ -73,17 +87,18 @@ function Dashboard() {
         fetchDashboardData();
     }, []);
 
-    // Prepare order statistics for charts
-    const orderStatusLabels = orderStats.map(stat => stat.status.charAt(0).toUpperCase() + stat.status.slice(1));
-    const orderCountData = orderStats.map(stat => stat.count);
-    const orderTotalData = orderStats.map(stat => stat.total);
+    // Prepare order statistics for charts - transform from object to arrays
+    const statusLabels = Object.keys(orderStats.statusStats || {})
+        .map(status => status.charAt(0).toUpperCase() + status.slice(1));
+
+    const statusCounts = Object.values(orderStats.statusStats || {});
 
     const orderStatusData = {
-        labels: orderStatusLabels,
+        labels: statusLabels,
         datasets: [
             {
                 label: 'Orders by Status',
-                data: orderCountData,
+                data: statusCounts,
                 backgroundColor: [
                     'rgba(255, 206, 86, 0.6)', // pending - yellow
                     'rgba(54, 162, 235, 0.6)', // processing - blue
@@ -102,6 +117,10 @@ function Dashboard() {
             },
         ],
     };
+
+    // Calculate total orders from the statusStats
+    const totalOrderCount = Object.values(orderStats.statusStats || {})
+        .reduce((sum, count) => sum + count, 0);
 
     // Navigation functions
     const handleNavigateToUsers = () => navigate('/admin/dashboard/users');
@@ -167,7 +186,7 @@ function Dashboard() {
                                 Orders
                             </Typography>
                             <Typography variant="h3" color="text.secondary">
-                                {orderStats.reduce((sum, stat) => sum + stat.count, 0)}
+                                {totalOrderCount}
                             </Typography>
                         </CardContent>
                         <Divider />
@@ -206,7 +225,7 @@ function Dashboard() {
                         </Typography>
                         {isLoading ? (
                             <Typography>Loading chart data...</Typography>
-                        ) : orderStats.length > 0 ? (
+                        ) : statusCounts.length > 0 ? (
                             <Bar
                                 data={orderStatusData}
                                 options={{
@@ -237,7 +256,7 @@ function Dashboard() {
                         </Typography>
                         {isLoading ? (
                             <Typography>Loading chart data...</Typography>
-                        ) : orderStats.length > 0 ? (
+                        ) : statusCounts.length > 0 ? (
                             <Pie
                                 data={orderStatusData}
                                 options={{
