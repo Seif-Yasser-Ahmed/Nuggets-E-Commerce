@@ -159,11 +159,14 @@ const Orders = () => {
     // Filter orders based on search term
     const filteredOrders = orders.filter(order => {
         const searchTermLower = searchTerm.toLowerCase();
+        // Safely check for ID (could be either id or _id property)
+        const orderId = (order._id || order.id || '').toString();
+        
         return (
-            order.id.toString().includes(searchTermLower) ||
-            order.username.toLowerCase().includes(searchTermLower) ||
-            order.email.toLowerCase().includes(searchTermLower) ||
-            order.status.toLowerCase().includes(searchTermLower)
+            orderId.includes(searchTermLower) ||
+            (order.username || '').toLowerCase().includes(searchTermLower) ||
+            (order.email || '').toLowerCase().includes(searchTermLower) ||
+            (order.status || '').toLowerCase().includes(searchTermLower)
         );
     });
 
