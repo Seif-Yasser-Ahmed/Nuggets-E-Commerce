@@ -192,7 +192,7 @@ exports.update = async (req, res) => {
         const missingFields = requiredFields.filter(field => {
             const fieldValue = productData[field];
             // Fixed the logic: field is missing when it's undefined, null or empty (except price can be 0)
-            return fieldValue === undefined || fieldValue === null || 
+            return fieldValue === undefined || fieldValue === null ||
                 (fieldValue === '' && field !== 'price');
         });
 
