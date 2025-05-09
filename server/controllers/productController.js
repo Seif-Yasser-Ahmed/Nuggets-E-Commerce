@@ -115,6 +115,27 @@ exports.create = async (req, res) => {
 exports.getById = async (req, res) => {
     try {
         const productId = req.params.id;
+        
+        // Validate the product ID - more comprehensive validation
+        if (!productId || productId === 'undefined' || productId === 'null') {
+            console.error('Invalid product ID requested:', productId);
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid product ID',
+                message: 'A valid product ID is required'
+            });
+        }
+        
+        // Check if the ID is a valid MongoDB ObjectId
+        if (!productId.match(/^[0-9a-fA-F]{24}$/)) {
+            console.error('Invalid product ID format:', productId);
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid product ID format',
+                message: 'The product ID must be a valid MongoDB ObjectId'
+            });
+        }
+        
         const product = await Product.findById(productId);
 
         if (!product) {
@@ -124,6 +145,16 @@ exports.getById = async (req, res) => {
         res.status(200).json({ success: true, data: product });
     } catch (err) {
         console.error('Error retrieving product:', err);
+        
+        // Check for invalid ObjectId error
+        if (err.name === 'CastError' && err.kind === 'ObjectId') {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid product ID format',
+                message: `The provided ID "${req.params.id}" is not a valid MongoDB ObjectId`
+            });
+        }
+        
         res.status(500).json({ success: false, error: 'Error retrieving product' });
     }
 };

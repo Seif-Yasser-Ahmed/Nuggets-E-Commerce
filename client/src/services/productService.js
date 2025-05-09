@@ -57,8 +57,28 @@ export const getCategories = async () => {
 // Get a single product by ID
 export const getProductById = async (id) => {
     try {
+        // Enhanced validation for product ID
+        if (!id || id === 'undefined' || id === 'null') {
+            console.error('Invalid product ID requested:', id);
+            throw new Error('Invalid product ID');
+        }
+        
+        // Format the ID properly for MongoDB
         const formattedId = formatId(id);
+        
+        if (!formattedId) {
+            console.error('Failed to format product ID:', id);
+            throw new Error('Invalid product ID format');
+        }
+        
         const response = await api.get(`/products/${formattedId}`);
+        
+        // Ensure we have valid data
+        if (!response.data || (!response.data.data && !response.data._id && !response.data.id)) {
+            console.error('Invalid product data received:', response.data);
+            throw new Error('Invalid product data received from server');
+        }
+        
         return response.data;
     } catch (error) {
         console.error(`Error fetching product ${id}:`, error);

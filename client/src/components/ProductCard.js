@@ -196,7 +196,7 @@ export default function ProductCard({ product }) {
         // Use the first valid ID format we find
         const productId = id || product?._id || product?.id;
 
-        if (productId) {
+        if (productId && productId !== 'undefined') {
             navigate(`/item/${productId}`);
         } else {
             console.error('Product ID missing or undefined', product);

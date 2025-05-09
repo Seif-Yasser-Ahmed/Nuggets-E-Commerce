@@ -368,12 +368,24 @@ const Cart = () => {
                                                 borderRadius: 'md',
                                                 overflow: 'hidden'
                                             }}
-                                        >                                            {(Array.isArray(item.images) && item.images.length > 0) || item.image_url ? (
+                                        >                                            {(Array.isArray(item.images) && item.images.length > 0) || 
+                                              item.image_url || item.image || 
+                                              (item.product && ((Array.isArray(item.product.images) && item.product.images.length > 0) || 
+                                               item.product.image_url || item.product.image)) ? (
                                             <img
-                                                src={formatImageUrl(Array.isArray(item.images) && item.images.length > 0
-                                                    ? item.images[0]
-                                                    : item.image_url)}
-                                                alt={item.name}
+                                                src={formatImageUrl(
+                                                    // First check product's images array
+                                                    Array.isArray(item.images) && item.images.length > 0
+                                                        ? item.images[0]
+                                                        // Next check direct image URLs
+                                                        : item.image_url || item.image
+                                                        // Then check if there's a nested product object with images
+                                                        || (item.product && Array.isArray(item.product.images) && item.product.images.length > 0
+                                                            ? item.product.images[0]
+                                                            // Finally check for image URL on nested product
+                                                            : item.product?.image_url || item.product?.image || '')
+                                                )}
+                                                alt={item.name || (item.product?.name || 'Product')}
                                                 style={{ objectFit: 'cover' }}
                                             />
                                         ) : (
