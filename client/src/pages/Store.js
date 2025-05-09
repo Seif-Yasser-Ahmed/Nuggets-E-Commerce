@@ -44,52 +44,8 @@ const Store = () => {
     const [categories, setCategories] = useState([]);
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [sortBy, setSortBy] = useState('featured');
-    const [showFilters, setShowFilters] = useState(false);    // Fetch products on component mount
-    useEffect(() => {
-        fetchProducts();
-    }, []);
-    // Apply filters whenever filter criteria change
-    useEffect(() => {
-        applyFilters();
-    }, [products, searchTerm, priceRange, selectedCategories, sortBy, applyFilters]);
-
-    const fetchProducts = async () => {
-        try {
-            setLoading(true);
-            console.log('Fetching products...');
-            const response = await getProducts();
-            console.log('API Response:', response);
-
-            if (response && response.data) {
-                console.log('Product data:', response.data);
-                const productData = response.data;
-                setProducts(productData);
-
-                // Extract unique categories
-                const allCategories = [...new Set(productData.map(product => product.category))];
-                setCategories(allCategories);
-
-                // Find minimum and maximum prices for range slider
-                const prices = productData.map(product => product.price).filter(price => price !== undefined);
-                const minPrice = Math.min(...prices);
-                const maxPrice = Math.max(...prices);
-
-                setMaxPrice(maxPrice);
-                setPriceRange([minPrice, maxPrice]);
-
-                // Apply initial filters
-                setFilteredProducts(productData);
-            } else {
-                console.error('Invalid product response format:', response);
-                setError('Failed to load products. Response format was invalid.');
-            }
-        } catch (error) {
-            console.error('Error fetching products:', error);
-            setError(`Failed to load products: ${error.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }; const applyFilters = useCallback(() => {
+    const [showFilters, setShowFilters] = useState(false);    // Define applyFilters using useCallback before using it in useEffect
+    const applyFilters = useCallback(() => {
         if (!products.length) return;
 
         // First filter by search term
@@ -141,8 +97,58 @@ const Store = () => {
                     if ((a.discount || 0) === 0 && (b.discount || 0) > 0) return 1;
                     return b.price - a.price;
                 });
-        }        setFilteredProducts(filtered);
+        }
+
+        setFilteredProducts(filtered);
     }, [products, searchTerm, priceRange, selectedCategories, sortBy]);
+
+    // Fetch products on component mount
+    useEffect(() => {
+        fetchProducts();
+    }, []);
+
+    // Apply filters whenever filter criteria change
+    useEffect(() => {
+        applyFilters();
+    }, [applyFilters]);
+
+    const fetchProducts = async () => {
+        try {
+            setLoading(true);
+            console.log('Fetching products...');
+            const response = await getProducts();
+            console.log('API Response:', response);
+
+            if (response && response.data) {
+                console.log('Product data:', response.data);
+                const productData = response.data;
+                setProducts(productData);
+
+                // Extract unique categories
+                const allCategories = [...new Set(productData.map(product => product.category))];
+                setCategories(allCategories);
+
+                // Find minimum and maximum prices for range slider
+                const prices = productData.map(product => product.price).filter(price => price !== undefined);
+                const minPrice = Math.min(...prices);
+                const maxPrice = Math.max(...prices);
+
+                setMaxPrice(maxPrice);
+                setPriceRange([minPrice, maxPrice]);
+
+                // Apply initial filters
+                setFilteredProducts(productData);
+            } else {
+                console.error('Invalid product response format:', response);
+                setError('Failed to load products. Response format was invalid.');
+            }
+        } catch (error) {
+            console.error('Error fetching products:', error);
+            setError(`Failed to load products: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
