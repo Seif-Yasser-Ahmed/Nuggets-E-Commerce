@@ -416,7 +416,11 @@ function Profile() {
             const storedUserId = localStorage.getItem('userId');
             await removeFromWishlist(storedUserId, productId);
 
-            setWishlistItems(wishlistItems.filter(item => item.id !== productId));
+            // Update the wishlist items - check all possible ID fields
+            setWishlistItems(wishlistItems.filter(item => {
+                const itemId = item._id || item.id || item.product_id;
+                return itemId !== productId;
+            }));
             showNotification('Item removed from wishlist.', 'success');
             
             // Dispatch event to update wishlist state across all components
@@ -1169,11 +1173,15 @@ function Profile() {
                                                     >                                                        <AspectRatio ratio="1/1" sx={{ width: 90 }}>                                                            <img
                                                                 src={formatImageUrl(
                                                                     Array.isArray(item.images) && item.images.length > 0
-                                                                    ? item.images[0]
-                                                                    : (item.image_url || item.image || '')
+                                                                        ? item.images[0]
+                                                                        : (item.image_url || item.image || 
+                                                                          (item.product && item.product.images && item.product.images.length > 0
+                                                                            ? item.product.images[0]
+                                                                            : (item.product?.image_url || item.product?.image || ''))
+                                                                        )
                                                                 )}
                                                                 loading="lazy"
-                                                                alt={item.name}
+                                                                alt={item.name || (item.product?.name || 'Product')}
                                                                 style={{ objectFit: 'cover' }}
                                                                 onError={(e) => {
                                                                     e.target.onerror = null;
@@ -1181,8 +1189,16 @@ function Profile() {
                                                                 }}
                                                             />
                                                         </AspectRatio>
-                                                        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, py: 1, pr: 2 }}>
-                                                            <Box onClick={() => navigate(`/item/${item.id}`)} sx={{ flex: 1 }}>
+                                                        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, py: 1, pr: 2 }}>                                                            <Box onClick={() => {
+                                                                // Use the first valid ID we find
+                                                                const productId = item._id || item.id || item.product_id;
+                                                                if (productId && productId !== 'undefined') {
+                                                                    navigate(`/item/${productId}`);
+                                                                } else {
+                                                                    console.error('Invalid product ID in wishlist item:', item);
+                                                                    showNotification('Error accessing product details', 'error');
+                                                                }
+                                                            }} sx={{ flex: 1 }}>
                                                                 <Typography level="title-sm" sx={{ color: darkMode ? 'white' : 'inherit' }}>
                                                                     {item.name}
                                                                 </Typography>
@@ -1527,12 +1543,24 @@ function OrderDetailsModal({ open, onClose, order, loading }) {
                                                         overflow: 'hidden',
                                                         flexShrink: 0
                                                     }}
-                                                >                                                    {(Array.isArray(item.images) && item.images.length > 0) || item.image_url ? (
+                                                >                                                    {(Array.isArray(item.images) && item.images.length > 0) || 
+                                                      item.image_url || item.image || 
+                                                      (item.product && ((Array.isArray(item.product.images) && item.product.images.length > 0) || 
+                                                       item.product.image_url || item.product.image)) ? (
                                                     <img
-                                                        src={formatImageUrl(Array.isArray(item.images) && item.images.length > 0
-                                                            ? item.images[0]
-                                                            : item.image_url)}
-                                                        alt={item.name}
+                                                        src={formatImageUrl(
+                                                            // First check images array
+                                                            Array.isArray(item.images) && item.images.length > 0
+                                                                ? item.images[0]
+                                                                // Then check direct image URLs
+                                                                : item.image_url || item.image
+                                                                // Check if there's a nested product object with images
+                                                                || (item.product && Array.isArray(item.product.images) && item.product.images.length > 0
+                                                                    ? item.product.images[0]
+                                                                    // Finally check for image URL on nested product
+                                                                    : item.product?.image_url || item.product?.image || '')
+                                                        )}
+                                                        alt={item.name || (item.product?.name || 'Product')}
                                                         style={{ objectFit: 'cover' }}
                                                     />
                                                 ) : (

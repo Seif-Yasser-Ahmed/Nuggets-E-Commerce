@@ -167,7 +167,7 @@ export default function ProductCard({ product }) {
         // Use the first valid ID format we find
         const productId = id || product?._id || product?.id;
 
-        if (productId) {
+        if (productId && productId !== 'undefined') {
             navigate(`/item/${productId}`);
         } else {
             console.error('Product ID missing or undefined', product);
@@ -227,9 +227,7 @@ export default function ProductCard({ product }) {
                 showNotification('Failed to add to cart', 'error');
             }
         }
-    };
-
-    // Toggle wishlist status
+    };    // Toggle wishlist status
     const toggleFavorite = async (e) => {
         e.stopPropagation(); // Prevent navigating to item page when clicking the button
 
@@ -250,6 +248,7 @@ export default function ProductCard({ product }) {
                 return;
             }
 
+            // Update wishlist - perform the operation first
             if (isFavorited) {
                 // Remove from wishlist
                 await removeFromWishlist(userId, productId);
@@ -258,8 +257,25 @@ export default function ProductCard({ product }) {
                 // Add to wishlist
                 await addToWishlist(userId, productId);
                 showNotification('Added to wishlist!');
-            }            // Toggle the state
-            setIsFavorited(!isFavorited);
+            }
+            
+            // Update local state - fetch current wishlist to ensure UI is in sync
+            const wishlistResponse = await getWishlist(userId);
+            if (wishlistResponse && wishlistResponse.data) {
+                const wishlistData = wishlistResponse.data.data || wishlistResponse.data;
+                
+                // Check if the product is in the wishlist by comparing IDs
+                const isInWishlist = wishlistData.some(item => {
+                    // Check against all possible ID properties
+                    const itemProductId = item._id || item.id || item.product_id || 
+                                         (item.product && (item.product._id || item.product.id));
+                    
+                    return itemProductId === productId || itemProductId?.toString() === productId?.toString();
+                });
+                
+                // Set state based on actual wishlist data
+                setIsFavorited(isInWishlist);
+            }
             
             // Dispatch event to update wishlist state across all components
             window.dispatchEvent(new CustomEvent('wishlist-updated'));

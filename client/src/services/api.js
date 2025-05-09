@@ -68,11 +68,29 @@ export const formatId = (id) => {
         console.error('Attempted to format undefined or null ID');
         return null;
     }
+    
+    // Explicitly reject invalid string values
+    if (id === 'undefined' || id === 'null' || id === '') {
+        console.error(`Received invalid value for ID: "${id}"`);
+        return null;
+    }
 
-    // Handle objects that might have _id or id property
+    // Handle objects that might have various ID properties (checking all common variations)
     if (typeof id === 'object' && id !== null) {
+        // MongoDB ID field
         if (id._id) return formatId(id._id);
+        // Standard ID field
         if (id.id) return formatId(id.id);
+        // Product ID (sometimes used in wishlist items)
+        if (id.product_id) return formatId(id.product_id);
+        // Handle nested product object
+        if (id.product && (id.product._id || id.product.id)) {
+            return formatId(id.product._id || id.product.id);
+        }
+        
+        // If it's an object but doesn't have any of these properties, we can't extract an ID
+        console.error('Object provided has no recognizable ID field:', id);
+        return null;
     }
 
     // Convert to string first to handle all input types
