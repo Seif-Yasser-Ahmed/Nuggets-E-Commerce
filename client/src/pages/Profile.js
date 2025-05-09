@@ -5,7 +5,7 @@ import { getUserOrders } from '../services/orderService';
 import { getWishlist, removeFromWishlist } from '../services/userService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
-import { formatImageUrl } from '../utils/imageUtils';
+import { formatImageUrl, getPlaceholderImage } from '../utils/imageUtils';
 import {
     Box,
     Container,
@@ -411,14 +411,14 @@ function Profile() {
         };
 
         reader.readAsDataURL(file);
-    };    const handleRemoveFromWishlist = async (productId) => {
+    }; const handleRemoveFromWishlist = async (productId) => {
         try {
             const storedUserId = localStorage.getItem('userId');
             await removeFromWishlist(storedUserId, productId);
 
             setWishlistItems(wishlistItems.filter(item => item.id !== productId));
             showNotification('Item removed from wishlist.', 'success');
-            
+
             // Dispatch event to update wishlist state across all components
             window.dispatchEvent(new CustomEvent('wishlist-updated'));
         } catch (error) {
@@ -1151,72 +1151,72 @@ function Profile() {
                                         </Box>
                                     ) : wishlistItems.length > 0 ? (
                                         <Grid container spacing={2}>
+                                            {console.log(wishlistItems)}
                                             {wishlistItems.map((item) => (
-                                                <Grid key={item.id} xs={12} sm={6}>
-                                                    <Card
-                                                        variant="outlined"
-                                                        sx={{
-                                                            display: 'flex',
-                                                            flexDirection: 'row',
-                                                            gap: 2,
-                                                            bgcolor: darkMode ? 'neutral.900' : 'white',
-                                                            position: 'relative',
-                                                            '&:hover': {
-                                                                borderColor: 'primary.500',
-                                                                cursor: 'pointer'
-                                                            }
-                                                        }}
-                                                    >                                                        <AspectRatio ratio="1/1" sx={{ width: 90 }}>                                                            <img
-                                                                src={formatImageUrl(
-                                                                    Array.isArray(item.images) && item.images.length > 0
-                                                                    ? item.images[0]
-                                                                    : (item.image_url || item.image || '')
-                                                                )}
-                                                                loading="lazy"
-                                                                alt={item.name}
-                                                                style={{ objectFit: 'cover' }}
-                                                                onError={(e) => {
-                                                                    e.target.onerror = null;
-                                                                    e.target.src = '/images/placeholder.png';
-                                                                }}
-                                                            />
-                                                        </AspectRatio>
-                                                        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, py: 1, pr: 2 }}>
-                                                            <Box onClick={() => navigate(`/item/${item.id}`)} sx={{ flex: 1 }}>
-                                                                <Typography level="title-sm" sx={{ color: darkMode ? 'white' : 'inherit' }}>
-                                                                    {item.name}
-                                                                </Typography>
-                                                                <Typography level="body-xs" sx={{ color: darkMode ? 'success.400' : 'success.600' }}>
-                                                                    ${parseFloat(item.price).toFixed(2)}
-                                                                </Typography>
-                                                            </Box>
-                                                            <Box sx={{ display: 'flex', mt: 'auto', gap: 1, justifyContent: 'flex-end' }}>
-                                                                <IconButton
-                                                                    size="sm"
-                                                                    variant="plain"
-                                                                    color="danger"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleRemoveFromWishlist(item.id);
-                                                                    }}
-                                                                >
-                                                                    <DeleteIcon fontSize="small" />
-                                                                </IconButton>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="soft"
-                                                                    color="primary"
-                                                                    startDecorator={<CartIcon />}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleAddToCart(item);
-                                                                    }}
-                                                                >
-                                                                    Add to Cart
-                                                                </Button>
-                                                            </Box>
+                                                <Grid key={item._id} xs={12} sm={6}>                                                    <Card
+                                                    variant="outlined"
+                                                    onClick={() => navigate(`/item/${item._id}`)}
+                                                    sx={{
+                                                        display: 'flex',
+                                                        flexDirection: 'row',
+                                                        gap: 2,
+                                                        bgcolor: darkMode ? 'neutral.900' : 'white',
+                                                        position: 'relative',
+                                                        '&:hover': {
+                                                            borderColor: 'primary.500',
+                                                            cursor: 'pointer'
+                                                        }
+                                                    }}
+                                                ><AspectRatio ratio="1/1" sx={{ width: 90 }}>                                                        <img
+                                                    src={formatImageUrl(
+                                                        Array.isArray(item.images) && item.images.length > 0
+                                                            ? item.images[0]
+                                                            : (item.image_url || item.image || '')
+                                                    )}
+                                                    loading="lazy"
+                                                    alt={item.name}
+                                                    style={{ objectFit: 'cover' }}
+                                                    onError={(e) => {
+                                                        e.target.onerror = null;
+                                                        e.target.src = getPlaceholderImage();
+                                                    }}
+                                                />
+                                                    </AspectRatio>                                                        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, py: 1, pr: 2 }}>
+                                                        <Box sx={{ flex: 1 }}>
+                                                            <Typography level="title-sm" sx={{ color: darkMode ? 'white' : 'inherit' }}>
+                                                                {item.name}
+                                                            </Typography>
+                                                            <Typography level="body-xs" sx={{ color: darkMode ? 'success.400' : 'success.600' }}>
+                                                                ${parseFloat(item.price).toFixed(2)}
+                                                            </Typography>
                                                         </Box>
-                                                    </Card>
+                                                        <Box sx={{ display: 'flex', mt: 'auto', gap: 1, justifyContent: 'flex-end' }}>
+                                                            <IconButton
+                                                                size="sm"
+                                                                variant="plain"
+                                                                color="danger"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleRemoveFromWishlist(item.id);
+                                                                }}
+                                                            >
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="soft"
+                                                                color="primary"
+                                                                startDecorator={<CartIcon />}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleAddToCart(item);
+                                                                }}
+                                                            >
+                                                                Add to Cart
+                                                            </Button>
+                                                        </Box>
+                                                    </Box>
+                                                </Card>
                                                 </Grid>
                                             ))}
                                         </Grid>

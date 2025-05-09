@@ -1,5 +1,22 @@
 import api, { formatId, isValidObjectId } from './api';
 
+// Helper function to update local wishlist cache
+const updateLocalWishlistCache = (productId, isAdding) => {
+    try {
+        const wishlistCache = JSON.parse(localStorage.getItem('userWishlist') || '{"items":[]}');
+
+        if (isAdding && !wishlistCache.items.includes(productId)) {
+            wishlistCache.items.push(productId);
+        } else if (!isAdding) {
+            wishlistCache.items = wishlistCache.items.filter(id => id !== productId);
+        }
+
+        localStorage.setItem('userWishlist', JSON.stringify(wishlistCache));
+    } catch (error) {
+        console.error('Error updating wishlist cache:', error);
+    }
+};
+
 // Get user's wishlist
 export const getWishlist = async (userId) => {
     try {
@@ -53,12 +70,14 @@ export const addToWishlist = async (userIdOrData, productIdParam) => {
         if (!formattedUserId || !formattedProductId) {
             console.error('Invalid MongoDB ObjectID format for userId or productId');
             return Promise.reject(new Error('Invalid ID format'));
-        }
-
-        const response = await api.post('/wishlist', {
+        } const response = await api.post('/wishlist', {
             userId: formattedUserId,
             productId: formattedProductId
         });
+
+        // Update local cache
+        updateLocalWishlistCache(formattedProductId, true);
+
         return response.data;
     } catch (error) {
         console.error('Error adding to wishlist:', error);
@@ -95,9 +114,11 @@ export const removeFromWishlist = async (userIdOrData, productIdParam) => {
         if (!formattedUserId || !formattedProductId) {
             console.error('Invalid MongoDB ObjectID format for userId or productId');
             return Promise.reject(new Error('Invalid ID format'));
-        }
+        } const response = await api.delete(`/wishlist/${formattedUserId}/${formattedProductId}`);
 
-        const response = await api.delete(`/wishlist/${formattedUserId}/${formattedProductId}`);
+        // Update local cache
+        updateLocalWishlistCache(formattedProductId, false);
+
         return response.data;
     } catch (error) {
         console.error('Error removing from wishlist:', error);

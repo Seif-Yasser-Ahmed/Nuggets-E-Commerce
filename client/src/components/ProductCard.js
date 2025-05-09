@@ -78,30 +78,59 @@ export default function ProductCard({ product }) {
                 const userId = localStorage.getItem('userId');
                 if (!userId) return;
 
-                const response = await getWishlist(userId);
+                // Get the product ID in a consistent format
+                const productId = id || product?._id || product?.id;
+                if (!productId) return;
 
+                // Check local storage first for quick display
+                const wishlistCache = JSON.parse(localStorage.getItem('userWishlist') || '{"items":[]}');
+                const cachedStatus = wishlistCache.items.includes(productId);
+                setIsFavorited(cachedStatus);
+
+                // Then fetch from server to be certain
+                const response = await getWishlist(userId);
                 if (response.data && response.data.data) {
-                    // Check for both id and _id properties to support MongoDB ObjectIds
-                    const productId = id || product?._id || product?.id;
-                    const isInWishlist = response.data.data.some(item =>
-                        (item._id && (item._id === productId || item._id.toString() === productId.toString())) ||
-                        (item.id && (item.id === productId || item.id.toString() === productId.toString())) ||
-                        (item.product_id && (item.product_id === productId || item.product_id.toString() === productId.toString()))
-                    );
-                    setIsFavorited(isInWishlist);
+                    // Loop through all items in the wishlist data
+                    const isInWishlist = response.data.data.some(item => {
+                        // Try different ID formats that might exist
+                        const itemId = item._id || item.id || item.product_id;
+                        const result = itemId && (itemId === productId ||
+                            (itemId.toString && productId.toString &&
+                                itemId.toString() === productId.toString()));
+                        return result;
+                    });
+
+                    // Update state and cache if different from what we thought
+                    if (isInWishlist !== cachedStatus) {
+                        setIsFavorited(isInWishlist);
+                        updateWishlistCache(productId, isInWishlist);
+                    }
                 }
             } catch (error) {
                 console.error('Error checking wishlist status:', error);
             }
         };
 
-        if (id) {
+        // Helper function to update wishlist cache
+        const updateWishlistCache = (productId, isAdding) => {
+            const wishlistCache = JSON.parse(localStorage.getItem('userWishlist') || '{"items":[]}');
+
+            if (isAdding && !wishlistCache.items.includes(productId)) {
+                wishlistCache.items.push(productId);
+            } else if (!isAdding) {
+                wishlistCache.items = wishlistCache.items.filter(id => id !== productId);
+            }
+
+            localStorage.setItem('userWishlist', JSON.stringify(wishlistCache));
+        };
+
+        if (id || product?._id || product?.id) {
             checkWishlistStatus();
         }
 
         // Listen for the wishlist update event
         window.addEventListener('wishlist-updated', checkWishlistStatus);
-        
+
         return () => {
             window.removeEventListener('wishlist-updated', checkWishlistStatus);
         };
@@ -227,6 +256,17 @@ export default function ProductCard({ product }) {
                 showNotification('Failed to add to cart', 'error');
             }
         }
+    };    // Helper function to update wishlist cache in localStorage
+    const updateWishlistCache = (productId, isAdding) => {
+        const wishlistCache = JSON.parse(localStorage.getItem('userWishlist') || '{"items":[]}');
+
+        if (isAdding && !wishlistCache.items.includes(productId)) {
+            wishlistCache.items.push(productId);
+        } else if (!isAdding) {
+            wishlistCache.items = wishlistCache.items.filter(id => id !== productId);
+        }
+
+        localStorage.setItem('userWishlist', JSON.stringify(wishlistCache));
     };
 
     // Toggle wishlist status
@@ -248,21 +288,28 @@ export default function ProductCard({ product }) {
                 console.error('Product ID is missing');
                 showNotification('Error: Could not identify product', 'error');
                 return;
-            }
-
-            if (isFavorited) {
+            } if (isFavorited) {
                 // Remove from wishlist
                 await removeFromWishlist(userId, productId);
                 showNotification('Removed from wishlist');
+                setIsFavorited(false);
+
+                // Update local cache
+                updateWishlistCache(productId, false);
             } else {
                 // Add to wishlist
                 await addToWishlist(userId, productId);
                 showNotification('Added to wishlist!');
-            }            // Toggle the state
-            setIsFavorited(!isFavorited);
-            
+                setIsFavorited(true);
+
+                // Update local cache
+                updateWishlistCache(productId, true);
+            }
+
             // Dispatch event to update wishlist state across all components
-            window.dispatchEvent(new CustomEvent('wishlist-updated'));
+            window.dispatchEvent(new CustomEvent('wishlist-updated', {
+                detail: { productId, inWishlist: !isFavorited }
+            }));
         } catch (error) {
             console.error('Error updating wishlist:', error);
             showNotification('Failed to update wishlist', 'error');

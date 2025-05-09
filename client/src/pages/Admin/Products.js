@@ -404,16 +404,17 @@ const Products = () => {
 
         // Make sure price is a number
         const price = parseFloat(formData.price);
-        if (!isNaN(price)) {
-            productFormData.append('price', price);
-        } else {
-            setSnackbar({
-                open: true,
-                message: 'Invalid price format',
-                severity: 'error'
-            });
-            return;
-        }
+        // if (!isNaN(price)) {
+        //     productFormData.append('price', price);
+        // } else {
+        //     setSnackbar({
+        //         open: true,
+        //         message: 'Invalid price format',
+        //         severity: 'error'
+        //     });
+        //     return;
+        // }
+        productFormData.append('price', price);
 
         productFormData.append('category', formData.category.trim());
 
