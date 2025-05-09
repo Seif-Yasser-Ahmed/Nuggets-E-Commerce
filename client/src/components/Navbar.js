@@ -214,7 +214,7 @@ export default function Navbar() {
             flexDirection: 'column'
         }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <StorefrontIcon sx={{ mr: 1, fontSize: 28 }} />
+                <StorefrontIcon sx={{ mr: 1, fontSize: 28, color: darkMode ? 'primary.400' : 'black' }} />
                 <Typography level="title-lg" sx={{ fontWeight: 'bold' }}>
                     Nuggets Shop
                 </Typography>
@@ -402,7 +402,7 @@ export default function Navbar() {
                             <MenuIcon />
                         </IconButton>
                         <Link to="/" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}>
-                            <StorefrontIcon sx={{ mr: 1, fontSize: 28 }} />
+                            <StorefrontIcon sx={{ mr: 1, fontSize: 28, color: darkMode ? 'primary.400' : 'white' }} />
                             <Typography level="title-lg" sx={{ fontWeight: 'bold', display: { xs: 'none', sm: 'block' } }}>
                                 Nuggets Shop
                             </Typography>

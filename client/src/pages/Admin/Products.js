@@ -70,6 +70,7 @@ const Products = () => {
         price: '',
         category: '',
         image_url: '',
+        images: [],
         stock: '',
         discount: '0',
         specs: {},
@@ -84,8 +85,11 @@ const Products = () => {
 
     // Image upload state
     const [imageFile, setImageFile] = useState(null);
+    const [imageFiles, setImageFiles] = useState([]);
     const [imagePreview, setImagePreview] = useState('');
+    const [imagePreviews, setImagePreviews] = useState([]);
     const fileInputRef = useRef(null);
+    const multipleFileInputRef = useRef(null);
 
     // Load products and categories
     useEffect(() => {
@@ -192,6 +196,7 @@ const Products = () => {
             price: '',
             category: '',
             image_url: '',
+            images: [],
             stock: '',
             discount: '0',
             specs: {},
@@ -202,7 +207,9 @@ const Products = () => {
         setColors([{ name: '', value: '' }]);
         setSizes(['']);
         setImageFile(null);
+        setImageFiles([]);
         setImagePreview('');
+        setImagePreviews([]);
         setDialogOpen(true);
     };
 
@@ -238,6 +245,7 @@ const Products = () => {
             price: product.price,
             category: product.category,
             image_url: product.image_url,
+            images: product.images || [],
             stock: product.stock,
             discount: product.discount || 0,
             specs: product.specs || {},
@@ -246,7 +254,9 @@ const Products = () => {
         });
 
         setImageFile(null);
+        setImageFiles([]);
         setImagePreview(product.image_url);
+        setImagePreviews(product.images || []);
 
         setDialogOpen(true);
     };
@@ -275,6 +285,33 @@ const Products = () => {
         }
     };
 
+    // Handle image file selection for main product image
+    const handleImageChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    // Handle multiple image file selection
+    const handleMultipleImageChange = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const files = Array.from(e.target.files);
+            setImageFiles(files);
+            
+            // Create preview URLs for all selected images
+            const previewUrls = files.map(file => URL.createObjectURL(file));
+            setImagePreviews(previewUrls);
+        }
+    };
+
+    // Remove an image from the preview/selection
+    const handleRemoveImage = (index) => {
+        setImagePreviews(prev => prev.filter((_, i) => i !== index));
+        setImageFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
     // Submit form to create or update a product
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -298,21 +335,19 @@ const Products = () => {
 
         try {
             let finalImageUrl = formData.image_url;
+            let additionalImages = [...(formData.images || [])];
 
-            // If we have a new image file, upload it first
+            // If we have a new main image file, upload it first
             if (imageFile) {
                 setSnackbar({
                     open: true,
-                    message: 'Uploading image, please wait...',
+                    message: 'Uploading main image, please wait...',
                     severity: 'info'
                 });
 
                 // Create form data for image upload
                 const imageFormData = new FormData();
                 imageFormData.append('image', imageFile);
-
-                // Log for debugging
-                console.log('Uploading image file:', imageFile.name, imageFile.type, imageFile.size);
 
                 try {
                     const uploadResponse = await API.post('/products/upload-image', imageFormData, {
@@ -339,12 +374,52 @@ const Products = () => {
                 }
             }
 
+            // If we have additional image files, upload them
+            if (imageFiles.length > 0) {
+                setSnackbar({
+                    open: true,
+                    message: 'Uploading additional images, please wait...',
+                    severity: 'info'
+                });
+
+                // Create form data for multiple images upload
+                const multipleImageFormData = new FormData();
+                imageFiles.forEach(file => {
+                    multipleImageFormData.append('images', file);
+                });
+
+                try {
+                    const uploadResponse = await API.post('/products/upload-images', multipleImageFormData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data'
+                        }
+                    });
+
+                    console.log('Multiple images upload response:', uploadResponse.data);
+
+                    // If upload was successful, get the image URLs
+                    if (uploadResponse.data && uploadResponse.data.imageUrls) {
+                        additionalImages = [...additionalImages, ...uploadResponse.data.imageUrls];
+                        console.log('Additional images uploaded successfully:', additionalImages);
+                    }
+                } catch (uploadError) {
+                    console.error('Error uploading additional images:', uploadError.response ? uploadError.response.data : uploadError.message);
+                    setSnackbar({
+                        open: true,
+                        message: `Failed to upload additional images: ${uploadError.response?.data?.error || uploadError.message}`,
+                        severity: 'error'
+                    });
+                    return;
+                }
+            }
+
             const productData = {
                 ...formData,
                 specs: specsObject,
                 colors: filteredColors,
                 sizes: filteredSizes,
-                image_url: finalImageUrl
+                image_url: finalImageUrl,
+                images: additionalImages
             };
 
             if (isEditing) {
@@ -363,14 +438,14 @@ const Products = () => {
                 });
             }
 
-            // Refresh products
+            // Refresh product list
             fetchProducts();
             setDialogOpen(false);
         } catch (error) {
             console.error('Error saving product:', error);
             setSnackbar({
                 open: true,
-                message: error.response?.data?.error || 'Failed to save product',
+                message: `Failed to save product: ${error.response?.data?.error || error.message}`,
                 severity: 'error'
             });
         }
@@ -412,38 +487,6 @@ const Products = () => {
             message: 'Category added successfully',
             severity: 'success'
         });
-    };
-
-    // Handle image file change
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setImageFile(file);
-            setImagePreview(URL.createObjectURL(file));
-        }
-    };
-
-    // Upload image and return the URL
-    const uploadImage = async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const response = await API.post('/upload', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-            return response.data.url;
-        } catch (error) {
-            console.error('Error uploading image:', error);
-            setSnackbar({
-                open: true,
-                message: 'Failed to upload image',
-                severity: 'error'
-            });
-            return null;
-        }
     };
 
     return (
@@ -789,6 +832,72 @@ const Products = () => {
                                             borderRadius: 1
                                         }}
                                     />
+                                )}
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <input
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                    id="multiple-image-upload"
+                                    type="file"
+                                    multiple
+                                    onChange={handleMultipleImageChange}
+                                    ref={multipleFileInputRef}
+                                />
+                                <label htmlFor="multiple-image-upload">
+                                    <Button
+                                        variant="outlined"
+                                        component="span"
+                                        startIcon={<CloudUploadIcon />}
+                                        fullWidth
+                                    >
+                                        Upload Multiple Images
+                                    </Button>
+                                </label>
+
+                                {imagePreviews.length > 0 && (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2 }}>
+                                        {imagePreviews.map((preview, index) => (
+                                            <Box
+                                                key={index}
+                                                sx={{
+                                                    position: 'relative',
+                                                    width: 100,
+                                                    height: 100,
+                                                    borderRadius: 1,
+                                                    overflow: 'hidden',
+                                                    bgcolor: 'grey.300'
+                                                }}
+                                            >
+                                                <Box
+                                                    component="img"
+                                                    src={preview}
+                                                    alt={`Image preview ${index + 1}`}
+                                                    sx={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'cover'
+                                                    }}
+                                                />
+                                                <IconButton
+                                                    size="small"
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        top: 4,
+                                                        right: 4,
+                                                        bgcolor: 'white',
+                                                        '&:hover': {
+                                                            bgcolor: 'red.100'
+                                                        }
+                                                    }}
+                                                    onClick={() => handleRemoveImage(index)}
+                                                >
+                                                    <DeleteIcon fontSize="small" color="error" />
+                                                </IconButton>
+                                            </Box>
+                                        ))}
+                                    </Box>
                                 )}
                             </Grid>
 

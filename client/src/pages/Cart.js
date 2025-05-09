@@ -82,7 +82,7 @@ const Cart = () => {
                 if (userId && token) {
                     // User is logged in, get cart from server
                     const response = await getCart(userId);
-                    console.log("Cart response:", response);
+                    // console.log("Cart response:", response);
 
                     // Check different possible response structures
                     if (response && response.data) {

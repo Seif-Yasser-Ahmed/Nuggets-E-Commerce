@@ -19,6 +19,7 @@ const productSchema = new Schema({
         required: true
     },
     image_url: String,
+    images: [String], // Add array of image URLs
     stock: {
         type: Number,
         default: 0

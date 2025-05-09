@@ -196,7 +196,7 @@ exports.getAll = async (req, res) => {
             return userObj;
         });
 
-        console.log('Users retrieved for admin:', transformedUsers.length);
+        // console.log('Users retrieved for admin:', transformedUsers.length);
         res.status(200).json({ success: true, data: transformedUsers });
     } catch (err) {
         console.error('Error retrieving users:', err);

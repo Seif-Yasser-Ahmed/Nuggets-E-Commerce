@@ -78,9 +78,9 @@ const Item = () => {
         const fetchProduct = async () => {
             try {
                 setLoading(true);
-                console.log("Fetching product with ID:", id);
+                // console.log("Fetching product with ID:", id);
                 const response = await getProductById(id);
-                console.log("Product API response:", response);
+                // console.log("Product API response:", response);
 
                 if (response && response.data) {
                     // Initialize product data, ensuring images is an array
@@ -89,10 +89,10 @@ const Item = () => {
                     // Handle different response structures
                     if (response.data.data) {
                         productData = response.data.data;
-                        console.log("Found product in response.data.data");
+                        // console.log("Found product in response.data.data");
                     } else {
                         productData = response.data;
-                        console.log("Found product in response.data");
+                        // console.log("Found product in response.data");
                     }
 
                     // Ensure product has an images array
@@ -100,7 +100,7 @@ const Item = () => {
                         productData.images = productData.image_url ? [productData.image_url] : [];
                     }
 
-                    console.log("Processed product data:", productData);
+                    // console.log("Processed product data:", productData);
                     setProduct(productData);
 
                     // Check if user is logged in to enable review submission
@@ -174,9 +174,9 @@ const Item = () => {
 
             if (response.data && response.data.data) {
                 setReviews(response.data.data);
-                console.log("Reviews loaded:", response.data.data.length, "reviews found");
+                // console.log("Reviews loaded:", response.data.data.length, "reviews found");
             } else {
-                console.log("No reviews found in response");
+                // console.log("No reviews found in response");
                 setReviews([]);
             }
         } catch (error) {
@@ -230,8 +230,8 @@ const Item = () => {
             setIsSubmittingReview(true);
 
             const reviewData = {
-                user_id: userId,
-                product_id: id,
+                productId: id,
+                userId: userId,
                 rating: newReview.rating,
                 comment: newReview.comment
             };
@@ -338,7 +338,7 @@ const Item = () => {
             const userId = localStorage.getItem('userId');
 
             if (!token || !userId) {
-                console.log('User not authenticated, redirecting to signin');
+                // console.log('User not authenticated, redirecting to signin');
                 navigate('/signin', { state: { from: location.pathname } });
                 return;
             }
@@ -368,7 +368,7 @@ const Item = () => {
 
             // Check for specific error types
             if (error.response) {
-                console.log('Error response:', error.response.status, error.response.data);
+                // console.log('Error response:', error.response.status, error.response.data);
 
                 if (error.response.status === 401) {
                     // If token expired or invalid, clear local storage and redirect to signin
@@ -544,7 +544,7 @@ const Item = () => {
                             {renderStars(product.rating || 0)}
                         </Box>
                         <Typography level="body-md" component="span" sx={{ mr: 2, color: darkMode ? 'primary.300' : 'neutral.800' }}>
-                            {product.rating || 0} ({product.reviewCount || 0} reviews)
+                            {product.rating || 0} ({product.review_count || 0} reviews)
                         </Typography>
                     </Box>
 
@@ -840,12 +840,7 @@ const Item = () => {
                                                         </Box>
                                                     </Box>
                                                     <Box sx={{ display: 'flex' }}>
-                                                        {[...Array(parseInt(review.rating))].map((_, i) => (
-                                                            <StarIcon key={i} sx={{ color: 'warning.500', fontSize: 'md' }} />
-                                                        ))}
-                                                        {[...Array(5 - parseInt(review.rating))].map((_, i) => (
-                                                            <StarIcon key={i + parseInt(review.rating)} sx={{ color: darkMode ? 'neutral.600' : 'neutral.300', fontSize: 'md' }} />
-                                                        ))}
+                                                        {renderStars(review.rating)}
                                                     </Box>
                                                 </Box>
                                                 <Typography level="body-md">{review.comment}</Typography>

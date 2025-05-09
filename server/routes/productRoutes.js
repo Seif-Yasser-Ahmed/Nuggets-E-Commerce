@@ -10,7 +10,8 @@ const {
     delete: deleteProduct,
     getCategories,
     getLowStock,
-    uploadImage
+    uploadImage,
+    uploadMultipleImages
 } = require('../controllers/productController');
 const {
     getProductReviews,
@@ -28,6 +29,7 @@ router.get('/:id', getById);
 // Admin-only routes
 router.post('/', authenticateAdmin, create);
 router.post('/upload-image', authenticateAdmin, uploadImage);
+router.post('/upload-images', authenticateAdmin, uploadMultipleImages);
 router.put('/:id', authenticateAdmin, update);
 router.delete('/:id', authenticateAdmin, deleteProduct);
 router.get('/inventory/low-stock', authenticateAdmin, getLowStock);

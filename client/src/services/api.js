@@ -28,16 +28,28 @@ api.interceptors.response.use(
         return response;
     },
     error => {
-        // Handle 401 Unauthorized responses
-        if (error.response && error.response.status === 401) {
-            // If not on login page and token exists, log out user
-            const isLoginPage = window.location.pathname.includes('signin');
+        // Handle 401 Unauthorized and 403 Forbidden responses
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            // If not on login/signup pages and token exists, log out user
+            const isAuthPage = window.location.pathname.includes('signin') || window.location.pathname.includes('signup');
             const token = localStorage.getItem('token');
 
-            if (!isLoginPage && token) {
+            if (!isAuthPage && token) {
+                // Clear all auth data
                 localStorage.removeItem('token');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('username');
+                localStorage.removeItem('isAdmin');
                 localStorage.removeItem('user');
-                window.location.href = '/signin';
+                localStorage.removeItem('userProfile');
+
+                // Dispatch auth change event
+                window.dispatchEvent(new CustomEvent('auth-status-changed'));
+
+                // Redirect to login page
+                setTimeout(() => {
+                    window.location.href = '/signin';
+                }, 100);
             }
         }
         return Promise.reject(error);

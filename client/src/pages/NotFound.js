@@ -41,11 +41,11 @@ const NotFound = () => {
                         }}
                     />
 
-                    <Typography level="h2" sx={{ mb: 1 }}>
+                    <Typography level="h2" sx={{ mb: 1, color: darkMode ? 'neutral.200' : 'neutral.800' }}>
                         404
                     </Typography>
 
-                    <Typography level="h4" sx={{ mb: 2 }}>
+                    <Typography level="h4" sx={{ mb: 2, color: darkMode ? 'neutral.200' : 'neutral.800' }}>
                         Page Not Found
                     </Typography>
 

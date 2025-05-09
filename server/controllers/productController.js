@@ -157,11 +157,14 @@ const upload = multer({
             cb(new Error('Only image files are allowed!'));
         }
     }
-}).single('image');
+});
 
-// Upload product image
+// Single image upload handler
+const singleUpload = upload.single('image');
+
+// Upload single product image
 exports.uploadImage = (req, res) => {
-    upload(req, res, async function (err) {
+    singleUpload(req, res, async function (err) {
         if (err) {
             return res.status(400).json({ success: false, error: err.message });
         }
@@ -172,6 +175,30 @@ exports.uploadImage = (req, res) => {
 
         // Create the URL for the uploaded file
         const filePath = `/uploads/products/${req.file.filename}`;
-        res.status(200).json({ success: true, data: { image_url: filePath } });
+        res.status(200).json({ success: true, imageUrl: filePath });
+    });
+};
+
+// Multiple images upload handler (up to 5 images)
+const multipleUpload = upload.array('images', 5);
+
+// Upload multiple product images
+exports.uploadMultipleImages = (req, res) => {
+    multipleUpload(req, res, async function (err) {
+        if (err) {
+            return res.status(400).json({ success: false, error: err.message });
+        }
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ success: false, error: 'No files uploaded' });
+        }
+
+        // Create URLs for all uploaded files
+        const imagePaths = req.files.map(file => `/uploads/products/${file.filename}`);
+        
+        res.status(200).json({ 
+            success: true, 
+            imageUrls: imagePaths 
+        });
     });
 };

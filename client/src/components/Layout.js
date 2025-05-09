@@ -2,6 +2,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
+import Footer from './Footer';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function Layout() {
@@ -20,9 +21,10 @@ export default function Layout() {
             }}
         >
             <Navbar />
-            <main className="flex-grow p-4">
+            <main style={{ flex: '1 0 auto', padding: '1rem' }}>
                 <Outlet />
             </main>
+            <Footer />
         </div>
     );
 }
