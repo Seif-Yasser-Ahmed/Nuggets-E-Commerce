@@ -398,7 +398,7 @@ export default function Home() {
                         if (products.length === index + 1) {
                             // This is the last element, attach the ref for infinite scroll
                             return (
-                                <Grid key={product.id} xs={12} sm={6} md={4} lg={3} sx={{ mb: 3 }}>
+                                <Grid key={product.id}>
                                     <Box ref={lastProductElementRef}>
                                         <ProductCard product={{
                                             ...product,
@@ -410,7 +410,7 @@ export default function Home() {
                             );
                         } else {
                             return (
-                                <Grid key={product.id} xs={12} sm={6} md={4} lg={3} sx={{ mb: 3 }}>
+                                <Grid key={product.id}>
                                     <ProductCard product={{
                                         ...product,
                                         // Map image_url to image property expected by ProductCard

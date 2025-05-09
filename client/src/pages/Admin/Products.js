@@ -42,7 +42,7 @@ import {
     Straighten as SizeIcon,
     CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
-import API from '../../services/api';
+import API, { formatId } from '../../services/api';
 import { formatImageUrl } from '../../utils/imageUtils';
 
 const Products = () => {
@@ -84,11 +84,8 @@ const Products = () => {
     const [sizes, setSizes] = useState(['']);
 
     // Image upload state
-    const [imageFile, setImageFile] = useState(null);
     const [imageFiles, setImageFiles] = useState([]);
-    const [imagePreview, setImagePreview] = useState('');
     const [imagePreviews, setImagePreviews] = useState([]);
-    const fileInputRef = useRef(null);
     const multipleFileInputRef = useRef(null);
 
     // Load products and categories
@@ -137,6 +134,12 @@ const Products = () => {
             ...formData,
             [name]: checked
         });
+    };
+
+    // Check if a field is required
+    const isFieldRequired = (fieldName) => {
+        const requiredFields = ['name', 'description', 'price', 'category', 'stock'];
+        return requiredFields.includes(fieldName);
     };
 
     // Handle spec changes
@@ -206,9 +209,7 @@ const Products = () => {
         setSpecs([{ key: '', value: '' }]);
         setColors([{ name: '', value: '' }]);
         setSizes(['']);
-        setImageFile(null);
         setImageFiles([]);
-        setImagePreview('');
         setImagePreviews([]);
         setDialogOpen(true);
     };
@@ -253,9 +254,7 @@ const Products = () => {
             hasSizes: hasSizes,
         });
 
-        setImageFile(null);
         setImageFiles([]);
-        setImagePreview(product.image_url);
         setImagePreviews(product.images || []);
 
         setDialogOpen(true);
@@ -267,9 +266,35 @@ const Products = () => {
             return;
         }
 
+        // Check if we have a valid ID
+        if (!id) {
+            console.error('Attempted to delete product with undefined ID');
+            setSnackbar({
+                open: true,
+                message: 'Failed to delete product: Invalid product ID',
+                severity: 'error'
+            });
+            return;
+        }
+
         try {
-            await API.delete(`/products/${id}`);
-            setProducts(products.filter(product => product.id !== id));
+            // Format the ID properly for MongoDB
+            const formattedId = formatId(id);
+
+            if (!formattedId) {
+                setSnackbar({
+                    open: true,
+                    message: 'Failed to delete product: Could not format the product ID',
+                    severity: 'error'
+                });
+                return;
+            }            // Make the API request with the formatted ID
+            await API.delete(`/products/${formattedId}`);
+
+            // Instead of just filtering the current list, fetch fresh data
+            // This ensures our view is in sync with the database
+            await fetchProducts();
+
             setSnackbar({
                 open: true,
                 message: 'Product deleted successfully',
@@ -283,26 +308,27 @@ const Products = () => {
                 severity: 'error'
             });
         }
-    };
-
-    // Handle image file selection for main product image
-    const handleImageChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setImageFile(file);
-            setImagePreview(URL.createObjectURL(file));
-        }
-    };
-
-    // Handle multiple image file selection
+    };// Handle multiple image selection
     const handleMultipleImageChange = (e) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const files = Array.from(e.target.files);
-            setImageFiles(files);
-            
-            // Create preview URLs for all selected images
-            const previewUrls = files.map(file => URL.createObjectURL(file));
-            setImagePreviews(previewUrls);
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            // Preview the images
+            const newImageURLs = files.map(file => URL.createObjectURL(file));
+            setImagePreviews([...imagePreviews, ...newImageURLs]);
+
+            // Update the image files array
+            setImageFiles([...imageFiles, ...files]);
+
+            // Set the first image as the main image for form data if no main image is already set
+            if (files.length > 0 && imageFiles.length === 0 && imagePreviews.length === 0) {
+                // Just set a reference to the first file - the actual URL will be created by the server
+                setFormData(prev => ({
+                    ...prev,
+                    image_url: files[0].name // Just use the name as a reference
+                }));
+            }
+
+            console.log(`Added ${files.length} image(s) to form data`);
         }
     };
 
@@ -316,121 +342,151 @@ const Products = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Convert specs array to object
-        const specsObject = {};
-        specs.forEach(spec => {
-            if (spec.key.trim() && spec.value.trim()) {
-                specsObject[spec.key.trim()] = spec.value.trim();
-            }
-        });
+        // Enhanced validation for required fields
+        const requiredFields = [
+            { name: 'name', value: formData.name },
+            { name: 'price', value: formData.price },
+            { name: 'description', value: formData.description },
+            { name: 'category', value: formData.category }
+        ];
 
-        // Filter out empty colors and sizes
-        const filteredColors = formData.hasColors
-            ? colors.filter(color => color.name.trim() && color.value.trim())
-            : [];
+        const missingFields = requiredFields.filter(field => !field.value);
 
-        const filteredSizes = formData.hasSizes
-            ? sizes.filter(size => size.trim())
-            : [];
+        if (missingFields.length > 0) {
+            setSnackbar({
+                open: true,
+                message: `Please fill in all required fields: ${missingFields.map(f => f.name).join(', ')}`,
+                severity: 'error'
+            });
+            return;
+        }        // Check if at least one image is uploaded
+        if (imageFiles.length === 0 && !formData.image_url && imagePreviews.length === 0) {
+            setSnackbar({
+                open: true,
+                message: 'Please upload at least one product image',
+                severity: 'error'
+            });
+            return;
+        }        // Create form data for submission
+        const productFormData = new FormData();
 
-        try {
-            let finalImageUrl = formData.image_url;
-            let additionalImages = [...(formData.images || [])];
-
-            // If we have a new main image file, upload it first
-            if (imageFile) {
-                setSnackbar({
-                    open: true,
-                    message: 'Uploading main image, please wait...',
-                    severity: 'info'
-                });
-
-                // Create form data for image upload
-                const imageFormData = new FormData();
-                imageFormData.append('image', imageFile);
-
-                try {
-                    const uploadResponse = await API.post('/products/upload-image', imageFormData, {
-                        headers: {
-                            'Content-Type': 'multipart/form-data'
-                        }
-                    });
-
-                    console.log('Upload response:', uploadResponse.data);
-
-                    // If upload was successful, get the image URL
-                    if (uploadResponse.data && uploadResponse.data.imageUrl) {
-                        finalImageUrl = uploadResponse.data.imageUrl;
-                        console.log('Image uploaded successfully:', finalImageUrl);
-                    }
-                } catch (uploadError) {
-                    console.error('Error uploading image:', uploadError.response ? uploadError.response.data : uploadError.message);
-                    setSnackbar({
-                        open: true,
-                        message: `Failed to upload image: ${uploadError.response?.data?.error || uploadError.message}`,
-                        severity: 'error'
-                    });
-                    return;
+        // Process product specifications
+        if (specs.length > 0) {
+            const specsObject = {};
+            specs.forEach(spec => {
+                if (spec.key && spec.value) {
+                    specsObject[spec.key] = spec.value;
                 }
+            });
+            if (Object.keys(specsObject).length > 0) {
+                productFormData.append('specs', JSON.stringify(specsObject));
+            }
+        }
+
+        // Process colors and sizes
+        if (formData.hasColors && colors.length > 0) {
+            const validColors = colors.filter(color => color.name && color.value);
+            if (validColors.length > 0) {
+                productFormData.append('colors', JSON.stringify(validColors));
+            }
+        }
+
+        if (formData.hasSizes && sizes.length > 0) {
+            const validSizes = sizes.filter(size => size.trim() !== '');
+            if (validSizes.length > 0) {
+                productFormData.append('sizes', JSON.stringify(validSizes));
+            }
+        }
+
+        // Add basic form fields - ensure proper type conversion
+        productFormData.append('name', formData.name.trim());
+        productFormData.append('description', formData.description.trim());
+
+        // Make sure price is a number
+        const price = parseFloat(formData.price);
+        if (!isNaN(price)) {
+            productFormData.append('price', price);
+        } else {
+            setSnackbar({
+                open: true,
+                message: 'Invalid price format',
+                severity: 'error'
+            });
+            return;
+        }
+
+        productFormData.append('category', formData.category.trim());
+
+        // Make sure stock is a number
+        const stock = parseInt(formData.stock);
+        if (!isNaN(stock)) {
+            productFormData.append('stock', stock);
+        } else {
+            productFormData.append('stock', 0); // Default to 0 if invalid
+        }
+
+        // Make sure discount is a number
+        const discount = parseInt(formData.discount) || 0;
+        productFormData.append('discount', discount);
+
+        // Add images to form data
+        if (imageFiles.length > 0) {
+            // Use the first image as the main image if available
+            imageFiles.forEach((file, index) => {
+                productFormData.append('images', file);
+            });
+            console.log(`Added ${imageFiles.length} new image files to form data`);
+        }
+
+        // If editing and there are existing images but no new ones, we need to preserve them
+        if (isEditing && imageFiles.length === 0 && imagePreviews.length > 0) {
+            // Make sure we're passing valid image paths
+            let existingImages = Array.isArray(currentProduct.images) && currentProduct.images.length > 0
+                ? currentProduct.images
+                : (currentProduct.image_url ? [currentProduct.image_url] : []);
+
+            // Filter out any null or undefined values
+            existingImages = existingImages.filter(img => img);
+
+            if (existingImages.length > 0) {
+                productFormData.append('existingImages', JSON.stringify(existingImages));
+                console.log(`Preserving ${existingImages.length} existing images:`, existingImages);
+            } else {
+                console.warn('No valid existing images found to preserve');
+            }
+        } try {
+            setLoading(true);
+
+            // Log what we're about to send for debugging purposes
+            console.log(`${isEditing ? 'Updating' : 'Creating'} product with form data`);
+
+            // Check form data content
+            for (let [key, value] of productFormData.entries()) {
+                console.log(`Form data: ${key} = ${typeof value === 'object' ? 'File/Object' : value}`);
             }
 
-            // If we have additional image files, upload them
-            if (imageFiles.length > 0) {
-                setSnackbar({
-                    open: true,
-                    message: 'Uploading additional images, please wait...',
-                    severity: 'info'
-                });
-
-                // Create form data for multiple images upload
-                const multipleImageFormData = new FormData();
-                imageFiles.forEach(file => {
-                    multipleImageFormData.append('images', file);
-                });
-
-                try {
-                    const uploadResponse = await API.post('/products/upload-images', multipleImageFormData, {
-                        headers: {
-                            'Content-Type': 'multipart/form-data'
-                        }
-                    });
-
-                    console.log('Multiple images upload response:', uploadResponse.data);
-
-                    // If upload was successful, get the image URLs
-                    if (uploadResponse.data && uploadResponse.data.imageUrls) {
-                        additionalImages = [...additionalImages, ...uploadResponse.data.imageUrls];
-                        console.log('Additional images uploaded successfully:', additionalImages);
-                    }
-                } catch (uploadError) {
-                    console.error('Error uploading additional images:', uploadError.response ? uploadError.response.data : uploadError.message);
-                    setSnackbar({
-                        open: true,
-                        message: `Failed to upload additional images: ${uploadError.response?.data?.error || uploadError.message}`,
-                        severity: 'error'
-                    });
-                    return;
+            if (isEditing && currentProduct) {
+                // Make sure we have a valid ID for the update
+                const productId = currentProduct.id || currentProduct._id;
+                if (!productId) {
+                    throw new Error('Missing product ID for update');
                 }
-            }
 
-            const productData = {
-                ...formData,
-                specs: specsObject,
-                colors: filteredColors,
-                sizes: filteredSizes,
-                image_url: finalImageUrl,
-                images: additionalImages
-            };
+                const formattedId = formatId(productId);
+                if (!formattedId) {
+                    throw new Error('Could not format product ID for update');
+                }
 
-            if (isEditing) {
-                await API.put(`/products/${currentProduct.id}`, productData);
+                // Update existing product
+                await API.put(`/products/${formattedId}`, productFormData);
                 setSnackbar({
                     open: true,
                     message: 'Product updated successfully',
                     severity: 'success'
                 });
             } else {
-                await API.post('/products', productData);
+                // Create new product
+                await API.post('/products', productFormData);
                 setSnackbar({
                     open: true,
                     message: 'Product added successfully',
@@ -443,11 +499,33 @@ const Products = () => {
             setDialogOpen(false);
         } catch (error) {
             console.error('Error saving product:', error);
+
+            let errorMessage = 'Failed to save product';
+
+            // Try to extract detailed error message from the response
+            if (error.response) {
+                console.log('Error response:', error.response);
+
+                if (error.response.data?.error) {
+                    errorMessage = `${errorMessage}: ${error.response.data.error}`;
+                } else if (error.response.data?.details?.length > 0) {
+                    errorMessage = `${errorMessage}: ${error.response.data.details.join(', ')}`;
+                } else if (error.response.data?.message) {
+                    errorMessage = `${errorMessage}: ${error.response.data.message}`;
+                } else if (error.response.statusText) {
+                    errorMessage = `${errorMessage}: ${error.response.statusText} (${error.response.status})`;
+                }
+            } else if (error.message) {
+                errorMessage = `${errorMessage}: ${error.message}`;
+            }
+
             setSnackbar({
                 open: true,
-                message: `Failed to save product: ${error.response?.data?.error || error.message}`,
+                message: errorMessage,
                 severity: 'error'
             });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -645,10 +723,9 @@ const Products = () => {
                                                 size="small"
                                             >
                                                 <EditIcon />
-                                            </IconButton>
-                                            <IconButton
+                                            </IconButton>                                            <IconButton
                                                 color="error"
-                                                onClick={() => handleDeleteProduct(product.id)}
+                                                onClick={() => handleDeleteProduct(product._id || product.id)}
                                                 size="small"
                                             >
                                                 <DeleteIcon />
@@ -684,18 +761,20 @@ const Products = () => {
                             <Grid item xs={12} md={6}>
                                 <TextField
                                     name="name"
-                                    label="Product Name"
+                                    label="Product Name *"
                                     fullWidth
                                     required
                                     value={formData.name}
                                     onChange={handleChange}
                                     variant="outlined"
+                                    error={!formData.name && formData.name !== undefined}
+                                    helperText={!formData.name && formData.name !== undefined ? "Product name is required" : ""}
                                 />
                             </Grid>
 
                             <Grid item xs={12} md={6}>
-                                <FormControl fullWidth required>
-                                    <InputLabel>Category</InputLabel>
+                                <FormControl fullWidth required error={!formData.category}>
+                                    <InputLabel>Category *</InputLabel>
                                     <Select
                                         name="category"
                                         value={formData.category}
@@ -706,7 +785,7 @@ const Products = () => {
                                                 handleChange(e);
                                             }
                                         }}
-                                        label="Category"
+                                        label="Category *"
                                     >
                                         {categories.map((category) => (
                                             <MenuItem key={category} value={category}>
@@ -744,7 +823,7 @@ const Products = () => {
                             <Grid item xs={12} md={4}>
                                 <TextField
                                     name="price"
-                                    label="Price"
+                                    label="Price *"
                                     type="number"
                                     InputProps={{
                                         startAdornment: <InputAdornment position="start">$</InputAdornment>,
@@ -754,19 +833,23 @@ const Products = () => {
                                     value={formData.price}
                                     onChange={handleChange}
                                     variant="outlined"
+                                    error={!formData.price && formData.price !== undefined}
+                                    helperText={!formData.price && formData.price !== undefined ? "Price is required" : ""}
                                 />
                             </Grid>
 
                             <Grid item xs={12} md={4}>
                                 <TextField
                                     name="stock"
-                                    label="Stock"
+                                    label="Stock *"
                                     type="number"
                                     fullWidth
                                     required
                                     value={formData.stock}
                                     onChange={handleChange}
                                     variant="outlined"
+                                    error={!formData.stock && formData.stock !== undefined}
+                                    helperText={!formData.stock && formData.stock !== undefined ? "Stock is required" : ""}
                                 />
                             </Grid>
 
@@ -784,58 +867,10 @@ const Products = () => {
                                     variant="outlined"
                                     inputProps={{ min: 0, max: 100 }}
                                 />
-                            </Grid>
-
-                            <Grid item xs={12}>
-                                <TextField
-                                    name="image_url"
-                                    label="Image URL"
-                                    fullWidth
-                                    value={formData.image_url || ''}
-                                    onChange={handleChange}
-                                    variant="outlined"
-                                    placeholder="https://example.com/image.jpg"
-                                />
-                            </Grid>
-
-                            <Grid item xs={12}>
-                                <input
-                                    accept="image/*"
-                                    style={{ display: 'none' }}
-                                    id="image-upload"
-                                    type="file"
-                                    onChange={handleImageChange}
-                                    ref={fileInputRef}
-                                />
-                                <label htmlFor="image-upload">
-                                    <Button
-                                        variant="outlined"
-                                        component="span"
-                                        startIcon={<CloudUploadIcon />}
-                                        fullWidth
-                                    >
-                                        {imageFile ? 'Change Image' : 'Upload Image'}
-                                    </Button>
-                                </label>
-
-                                {imagePreview && (
-                                    <Box
-                                        component="img"
-                                        src={imagePreview}
-                                        alt="Image preview"
-                                        sx={{
-                                            mt: 2,
-                                            width: '100%',
-                                            height: 'auto',
-                                            maxHeight: 300,
-                                            objectFit: 'contain',
-                                            borderRadius: 1
-                                        }}
-                                    />
-                                )}
-                            </Grid>
-
-                            <Grid item xs={12}>
+                            </Grid>                            <Grid item xs={12}>
+                                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                                    Product Images*
+                                </Typography>
                                 <input
                                     accept="image/*"
                                     style={{ display: 'none' }}
@@ -847,56 +882,83 @@ const Products = () => {
                                 />
                                 <label htmlFor="multiple-image-upload">
                                     <Button
-                                        variant="outlined"
+                                        variant="contained"
                                         component="span"
                                         startIcon={<CloudUploadIcon />}
                                         fullWidth
+                                        color="primary"
                                     >
-                                        Upload Multiple Images
+                                        Upload Product Images
                                     </Button>
                                 </label>
+                                <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+                                    You can select multiple images at once. The first image will be used as the main product image.
+                                </Typography>
 
                                 {imagePreviews.length > 0 && (
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2 }}>
-                                        {imagePreviews.map((preview, index) => (
-                                            <Box
-                                                key={index}
-                                                sx={{
-                                                    position: 'relative',
-                                                    width: 100,
-                                                    height: 100,
-                                                    borderRadius: 1,
-                                                    overflow: 'hidden',
-                                                    bgcolor: 'grey.300'
-                                                }}
-                                            >
+                                    <Box sx={{ mt: 2 }}>
+                                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                            {imagePreviews.length === 1 ? '1 image selected' : `${imagePreviews.length} images selected`}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                            {imagePreviews.map((preview, index) => (
                                                 <Box
-                                                    component="img"
-                                                    src={preview}
-                                                    alt={`Image preview ${index + 1}`}
+                                                    key={index}
                                                     sx={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        objectFit: 'cover'
+                                                        position: 'relative',
+                                                        width: 100,
+                                                        height: 100,
+                                                        borderRadius: 1,
+                                                        overflow: 'hidden',
+                                                        bgcolor: 'grey.300',
+                                                        border: index === 0 ? '2px solid #4caf50' : 'none',
                                                     }}
-                                                />
-                                                <IconButton
-                                                    size="small"
-                                                    sx={{
-                                                        position: 'absolute',
-                                                        top: 4,
-                                                        right: 4,
-                                                        bgcolor: 'white',
-                                                        '&:hover': {
-                                                            bgcolor: 'red.100'
-                                                        }
-                                                    }}
-                                                    onClick={() => handleRemoveImage(index)}
                                                 >
-                                                    <DeleteIcon fontSize="small" color="error" />
-                                                </IconButton>
-                                            </Box>
-                                        ))}
+                                                    {index === 0 && (
+                                                        <Chip
+                                                            label="Main"
+                                                            size="small"
+                                                            color="success"
+                                                            sx={{
+                                                                position: 'absolute',
+                                                                top: 4,
+                                                                left: 4,
+                                                                zIndex: 2,
+                                                                fontSize: '0.7rem',
+                                                                height: '20px'
+                                                            }}
+                                                        />
+                                                    )}
+                                                    <Box
+                                                        component="img"
+                                                        src={preview}
+                                                        alt={`Image preview ${index + 1}`}
+                                                        sx={{
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'cover'
+                                                        }}
+                                                    />
+                                                    <IconButton
+                                                        size="small"
+                                                        sx={{
+                                                            position: 'absolute',
+                                                            bottom: 4,
+                                                            right: 4,
+                                                            bgcolor: 'rgba(255,255,255,0.8)',
+                                                            '&:hover': {
+                                                                bgcolor: 'rgba(255,0,0,0.1)'
+                                                            },
+                                                            width: 24,
+                                                            height: 24
+                                                        }}
+                                                        onClick={() => handleRemoveImage(index)}
+                                                    >
+                                                        <DeleteIcon fontSize="small" color="error" />
+                                                    </IconButton>
+                                                </Box>
+                                            ))}
+                                        </Box>
                                     </Box>
                                 )}
                             </Grid>
@@ -904,7 +966,7 @@ const Products = () => {
                             <Grid item xs={12}>
                                 <TextField
                                     name="description"
-                                    label="Description"
+                                    label="Description *"
                                     fullWidth
                                     required
                                     multiline
@@ -912,6 +974,8 @@ const Products = () => {
                                     value={formData.description}
                                     onChange={handleChange}
                                     variant="outlined"
+                                    error={!formData.description && formData.description !== undefined}
+                                    helperText={!formData.description && formData.description !== undefined ? "Description is required" : ""}
                                 />
                             </Grid>
 

@@ -366,18 +366,17 @@ const Store = () => {
                     ) : error ? (
                         <Alert color="danger" sx={{ my: 2 }}>
                             {error}
-                        </Alert>
-                    ) : filteredProducts.length > 0 ? (
-                        <Grid container spacing={2}>
+                        </Alert>) : filteredProducts.length > 0 ? (<Grid container spacing={2}>
                             {filteredProducts.map((product) => (
-                                <Grid key={product._id || product.id} xs={12} sm={6} md={4}>
+                                <Grid key={product._id || product.id} >
                                     <ProductCard product={{
                                         id: product._id || product.id,
                                         name: product.name,
                                         category: product.category,
                                         price: product.price,
                                         currency: 'EGP',
-                                        image: product.image_url,
+                                        image_url: product.image_url,
+                                        images: product.images || [product.image_url],
                                         rating: product.rating || 4,
                                         stock: product.stock || 10,
                                         discount: product.discount || 0,
@@ -386,7 +385,7 @@ const Store = () => {
                                 </Grid>
                             ))}
                         </Grid>
-                    ) : (
+                        ) : (
                         <Box sx={{
                             py: 8,
                             textAlign: 'center',

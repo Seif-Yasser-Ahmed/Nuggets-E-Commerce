@@ -13,10 +13,8 @@ exports.getCart = async (req, res) => {
                 success: false,
                 error: 'Invalid user ID'
             });
-        }
-
-        // Find cart and populate product details
-        const cart = await Cart.findOne({ user: userId })
+        }        // Find cart and populate product details
+        let cart = await Cart.findOne({ user: userId })
             .populate({
                 path: 'items.product',
                 select: 'name price image_url'
@@ -30,21 +28,41 @@ exports.getCart = async (req, res) => {
             });
         }
 
+        // Check for invalid product references and clean them up        // Clean up cart items with missing product references 
+        const hasInvalidItems = cart.items.some(item => !item.product);
+        if (hasInvalidItems) {
+            console.log('Cleaning up invalid product references in cart...');
+            cart.items = cart.items.filter(item => item.product);
+            await cart.save();
+        }
+
         // Calculate total
         let total = 0;
         const cartItems = cart.items.map(item => {
-            const subtotal = item.product.price * item.quantity;
-            total += subtotal;
+            // Check if the product exists (it might have been deleted)
+            if (!item.product) {
+                console.log('Found cart item with missing product reference:', item);
+                return null; // This will be filtered out below
+            }
 
-            return {
+            // Check that the product has all required properties
+            if (!item.product || typeof item.product !== 'object') {
+                console.log('Invalid product object in cart:', item);
+                return null;
+            }
+
+            // Handle case when product object exists but price might be null or undefined
+            const productPrice = (item.product && item.product.price) ? Number(item.product.price) : 0;
+            const subtotal = productPrice * item.quantity;
+            total += subtotal; return {
                 id: item._id,
-                product_id: item.product._id,
-                name: item.product.name,
-                price: item.product.price,
-                image_url: item.product.image_url,
-                quantity: item.quantity
+                product_id: item.product._id || item.product.id || 'unknown',
+                name: item.product.name || "Product Unavailable",
+                price: productPrice,
+                image_url: item.product.image_url || '',
+                quantity: item.quantity || 1
             };
-        });
+        }).filter(item => item !== null); // Remove any null items (where product doesn't exist)
 
         res.status(200).json({
             success: true,

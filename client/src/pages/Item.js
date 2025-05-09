@@ -44,6 +44,7 @@ import { getProductById } from '../services/productService';
 import { addReview, getReviews } from '../services/reviewService';
 import { formatImageUrl } from '../utils/imageUtils';
 import { getWishlist, addToWishlist, removeFromWishlist } from '../services/wishlistService';
+import ProductImageCarousel from '../components/ProductImageCarousel';
 
 const Item = () => {
     const { id } = useParams();
@@ -93,11 +94,10 @@ const Item = () => {
                     } else {
                         productData = response.data;
                         // console.log("Found product in response.data");
-                    }
-
-                    // Ensure product has an images array
-                    if (!Array.isArray(productData.images)) {
-                        productData.images = productData.image_url ? [productData.image_url] : [];
+                    }                    // Ensure product has an images array - handle single image case
+                    if (!Array.isArray(productData.images) || productData.images.length === 0) {
+                        productData.images = productData.image_url ? [productData.image_url] :
+                            (productData.image ? [productData.image] : []);
                     }
 
                     // console.log("Processed product data:", productData);
@@ -319,11 +319,12 @@ const Item = () => {
                 (item._id === (product._id || product.id)) ||
                 (item.product && (item.product._id === (product._id || product.id)))
             );
-            setIsFavorite(isInWishlist);
-
-            // Show success message
+            setIsFavorite(isInWishlist);            // Show success message
             setSnackbarOpen(true);
             setSnackbarSeverity('success');
+            
+            // Dispatch event to update wishlist state across all components
+            window.dispatchEvent(new CustomEvent('wishlist-updated'));
         } catch (error) {
             console.error('Error updating wishlist:', error);
             setSnackbarOpen(true);
@@ -473,64 +474,13 @@ const Item = () => {
             <Grid container spacing={4}>
                 {/* Product Images */}
                 <Grid xs={12} md={6}>
-                    <Box sx={{ position: 'relative', mb: 2 }}>
-                        <Box
-                            component="img"
-                            src={formatImageUrl(product.images[selectedImage] || product.image_url)}
-                            alt={product.name}
-                            sx={{
-                                width: '100%',
-                                height: 'auto',
-                                borderRadius: 'md',
-                                objectFit: 'cover',
-                                aspectRatio: '1/1',
-                                boxShadow: 'sm'
-                            }}
-                        />
-                        <IconButton
-                            variant="soft"
-                            color={isFavorite ? 'danger' : 'neutral'}
-                            aria-label="Add to favorites"
-                            size="md"
-                            onClick={toggleFavorite}
-                            sx={{
-                                position: 'absolute',
-                                top: 8,
-                                right: 8,
-                                zIndex: 2,
-                            }}
-                        >
-                            {isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-                        </IconButton>
-                    </Box>
-                    {product.images && product.images.length > 1 && (
-                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {product.images.map((image, index) => (
-                                <Box
-                                    key={index}
-                                    component="img"
-                                    src={image}
-                                    alt={`Thumbnail ${index + 1}`}
-                                    onClick={() => setSelectedImage(index)}
-                                    sx={{
-                                        width: '80px',
-                                        height: '80px',
-                                        objectFit: 'cover',
-                                        borderRadius: 'sm',
-                                        cursor: 'pointer',
-                                        border: selectedImage === index ? '2px solid' : '2px solid transparent',
-                                        borderColor: 'primary.500',
-                                        boxShadow: selectedImage === index ? 'md' : 'sm',
-                                        transition: 'all 0.2s',
-                                        opacity: selectedImage === index ? 1 : 0.7,
-                                        '&:hover': {
-                                            opacity: 1
-                                        }
-                                    }}
-                                />
-                            ))}
-                        </Box>
-                    )}
+                    <ProductImageCarousel
+                        images={product.images}
+                        selectedImage={selectedImage}
+                        setSelectedImage={setSelectedImage}
+                        isFavorite={isFavorite}
+                        toggleFavorite={toggleFavorite}
+                    />
                 </Grid>
 
                 {/* Product Info */}

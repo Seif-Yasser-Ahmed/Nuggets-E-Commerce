@@ -7,6 +7,88 @@ const fs = require('fs');
 exports.create = async (req, res) => {
     try {
         const productData = req.body;
+        const files = req.files;
+
+        console.log('Creating product with data:', JSON.stringify(productData, null, 2));
+        console.log('Files received:', files ? files.length : 0);
+
+        // Enhanced check for required fields
+        const requiredFields = ['name', 'price', 'category', 'description'];
+        const missingFields = requiredFields.filter(field => {
+            // Check if the field exists and has a non-empty value (0 is valid for price)
+            const fieldValue = productData[field];
+            const isMissing = fieldValue === undefined || fieldValue === null ||
+                (fieldValue === '' && field !== 'price');
+
+            if (isMissing) {
+                console.log(`Missing field: ${field}`);
+            }
+
+            return isMissing;
+        });
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: `Missing required fields: ${missingFields.join(', ')}`
+            });
+        }
+
+        // Parse JSON strings from form data
+        if (productData.specs && typeof productData.specs === 'string') {
+            try {
+                productData.specs = JSON.parse(productData.specs);
+            } catch (e) {
+                console.error('Error parsing specs JSON:', e);
+                productData.specs = {};
+            }
+        }
+
+        if (productData.colors && typeof productData.colors === 'string') {
+            try {
+                productData.colors = JSON.parse(productData.colors);
+            } catch (e) {
+                console.error('Error parsing colors JSON:', e);
+                productData.colors = [];
+            }
+        }
+
+        if (productData.sizes && typeof productData.sizes === 'string') {
+            try {
+                productData.sizes = JSON.parse(productData.sizes);
+            } catch (e) {
+                console.error('Error parsing sizes JSON:', e);
+                productData.sizes = [];
+            }
+        }
+
+        // Handle uploaded images
+        if (files && files.length > 0) {
+            // Create URLs for all uploaded files
+            productData.images = files.map(file => `/uploads/products/${file.filename}`);
+            // Set the first image as the main image
+            productData.image_url = productData.images[0];
+        }
+        // If no files but existingImages are provided (during edit)
+        else if (productData.existingImages && typeof productData.existingImages === 'string') {
+            try {
+                const existingImages = JSON.parse(productData.existingImages);
+                productData.images = existingImages;
+                if (existingImages.length > 0) {
+                    productData.image_url = existingImages[0];
+                }
+                delete productData.existingImages; // Remove the temporary field
+            } catch (e) {
+                console.error('Error parsing existingImages JSON:', e);
+            }
+        }
+        // No images provided
+        else if (!productData.image_url && (!productData.images || productData.images.length === 0)) {
+            return res.status(400).json({
+                success: false,
+                error: 'At least one product image is required'
+            });
+        }
 
         const newProduct = new Product(productData);
         await newProduct.save();
@@ -18,6 +100,13 @@ exports.create = async (req, res) => {
         });
     } catch (err) {
         console.error('Error creating product:', err);
+        if (err.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                error: 'Validation Error',
+                details: Object.values(err.errors).map(e => e.message)
+            });
+        }
         res.status(500).json({ success: false, error: 'Error creating product' });
     }
 };
@@ -67,6 +156,76 @@ exports.update = async (req, res) => {
     try {
         const productId = req.params.id;
         const productData = req.body;
+        const files = req.files;
+
+        // Enhanced check for required fields for update
+        const requiredFields = ['name', 'price', 'category', 'description'];
+        const missingFields = requiredFields.filter(field =>
+            productData.hasOwnProperty(field) && !productData[field] && productData[field] !== 0
+        );
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: `Missing required fields: ${missingFields.join(', ')}`
+            });
+        }
+
+        // Parse JSON strings from form data
+        if (productData.specs && typeof productData.specs === 'string') {
+            try {
+                productData.specs = JSON.parse(productData.specs);
+            } catch (e) {
+                console.error('Error parsing specs JSON:', e);
+                productData.specs = {};
+            }
+        }
+
+        if (productData.colors && typeof productData.colors === 'string') {
+            try {
+                productData.colors = JSON.parse(productData.colors);
+            } catch (e) {
+                console.error('Error parsing colors JSON:', e);
+                productData.colors = [];
+            }
+        }
+
+        if (productData.sizes && typeof productData.sizes === 'string') {
+            try {
+                productData.sizes = JSON.parse(productData.sizes);
+            } catch (e) {
+                console.error('Error parsing sizes JSON:', e);
+                productData.sizes = [];
+            }
+        }
+
+        // Handle uploaded images
+        if (files && files.length > 0) {
+            // Create URLs for all uploaded files
+            productData.images = files.map(file => `/uploads/products/${file.filename}`);
+            // Set the first image as the main image
+            productData.image_url = productData.images[0];
+        }
+        // If no files but existingImages are provided (during edit)
+        else if (productData.existingImages && typeof productData.existingImages === 'string') {
+            try {
+                const existingImages = JSON.parse(productData.existingImages);
+                productData.images = existingImages;
+                if (existingImages.length > 0) {
+                    productData.image_url = existingImages[0];
+                }
+                delete productData.existingImages; // Remove the temporary field
+            } catch (e) {
+                console.error('Error parsing existingImages JSON:', e);
+            }
+        }
+        // Check that we have at least one image
+        else if (productData.hasOwnProperty('images') && (!productData.images || productData.images.length === 0) && !productData.image_url) {
+            return res.status(400).json({
+                success: false,
+                error: 'At least one product image is required'
+            });
+        }
 
         const updatedProduct = await Product.findByIdAndUpdate(productId, productData, {
             new: true,
@@ -77,9 +236,20 @@ exports.update = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
 
-        res.status(200).json({ success: true, message: 'Product updated successfully' });
+        res.status(200).json({
+            success: true,
+            message: 'Product updated successfully',
+            data: updatedProduct
+        });
     } catch (err) {
         console.error('Error updating product:', err);
+        if (err.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                error: 'Validation Error',
+                details: Object.values(err.errors).map(e => e.message)
+            });
+        }
         res.status(500).json({ success: false, error: 'Error updating product' });
     }
 };
@@ -88,6 +258,15 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
     try {
         const productId = req.params.id;
+
+        // Validate the ID before attempting to use it
+        if (!productId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing product ID',
+                message: 'Product ID is required to delete a product'
+            });
+        }
 
         const deletedProduct = await Product.findByIdAndDelete(productId);
 
@@ -98,6 +277,16 @@ exports.delete = async (req, res) => {
         res.status(200).json({ success: true, message: 'Product deleted successfully' });
     } catch (err) {
         console.error('Error deleting product:', err);
+
+        // Check for invalid ObjectId error
+        if (err.name === 'CastError' && err.kind === 'ObjectId') {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid product ID format',
+                message: `The provided ID "${req.params.id}" is not a valid MongoDB ObjectId`
+            });
+        }
+
         res.status(500).json({ success: false, error: 'Error deleting product' });
     }
 };
@@ -195,10 +384,11 @@ exports.uploadMultipleImages = (req, res) => {
 
         // Create URLs for all uploaded files
         const imagePaths = req.files.map(file => `/uploads/products/${file.filename}`);
-        
-        res.status(200).json({ 
-            success: true, 
-            imageUrls: imagePaths 
+
+        res.status(200).json({
+            success: true,
+            imageUrls: imagePaths,
+            mainImageUrl: imagePaths[0] // Set the first image as the main image
         });
     });
 };

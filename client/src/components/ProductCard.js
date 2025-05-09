@@ -15,12 +15,14 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import ImageNotSupportedIcon from '@mui/icons-material/ImageNotSupported';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import Snackbar from '@mui/joy/Snackbar';
 import Alert from '@mui/joy/Alert';
 import { useTheme } from '../contexts/ThemeContext';
 import { getWishlist, addToWishlist, removeFromWishlist } from '../services/wishlistService';
 import { addToCart } from '../services/cartService';
-import { formatImageUrl } from '../utils/imageUtils';
+import { formatImageUrl, getPlaceholderImage } from '../utils/imageUtils';
 
 export default function ProductCard({ product }) {
     const navigate = useNavigate();
@@ -32,25 +34,44 @@ export default function ProductCard({ product }) {
         message: '',
         severity: 'success'
     });
-
-    // Extract product properties with defaults
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);    // Extract product properties with defaults
     const {
         id = '',
         name = 'Product Name',
         category = 'Category',
         price = 0,
         currency = 'EG',
-        image = null,
         rating = 0,
         stock = 0,
         discount = 0,
         isNewArrival = false
     } = product || {};
 
-    // Calculate original price if there's a discount
-    const originalPrice = discount > 0 ? (price / (1 - discount / 100)).toFixed(0) : null;
+    // State for image carousel
+    // const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-    // Check if the product is in the user's wishlist on component mount
+    // Get all product images or fallback to placeholder
+    const productImages = Array.isArray(product?.images) && product?.images.length > 0
+        ? product.images
+        : (product?.image_url ? [product.image_url] :
+            (product?.image ? [product.image] : [getPlaceholderImage()]));
+
+    // Current image to display based on carousel index
+    const displayImage = productImages[currentImageIndex];
+
+    // Carousel navigation handlers
+    const nextImage = (e) => {
+        e.stopPropagation();
+        setCurrentImageIndex((prev) => (prev + 1) % productImages.length);
+    };
+
+    const prevImage = (e) => {
+        e.stopPropagation();
+        setCurrentImageIndex((prev) => prev === 0 ? productImages.length - 1 : prev - 1);
+    };
+
+    // Calculate original price if there's a discount
+    const originalPrice = discount > 0 ? (price / (1 - discount / 100)).toFixed(0) : null;    // Check if the product is in the user's wishlist on component mount and when wishlist changes
     useEffect(() => {
         const checkWishlistStatus = async () => {
             try {
@@ -61,9 +82,11 @@ export default function ProductCard({ product }) {
 
                 if (response.data && response.data.data) {
                     // Check for both id and _id properties to support MongoDB ObjectIds
+                    const productId = id || product?._id || product?.id;
                     const isInWishlist = response.data.data.some(item =>
-                        (item._id && (item._id === id || item._id.toString() === id.toString())) ||
-                        (item.id && (item.id === id || item.id.toString() === id.toString()))
+                        (item._id && (item._id === productId || item._id.toString() === productId.toString())) ||
+                        (item.id && (item.id === productId || item.id.toString() === productId.toString())) ||
+                        (item.product_id && (item.product_id === productId || item.product_id.toString() === productId.toString()))
                     );
                     setIsFavorited(isInWishlist);
                 }
@@ -75,7 +98,14 @@ export default function ProductCard({ product }) {
         if (id) {
             checkWishlistStatus();
         }
-    }, [id]);
+
+        // Listen for the wishlist update event
+        window.addEventListener('wishlist-updated', checkWishlistStatus);
+        
+        return () => {
+            window.removeEventListener('wishlist-updated', checkWishlistStatus);
+        };
+    }, [id, product]);
 
     // Show notification function
     const showNotification = (message, severity = 'success') => {
@@ -228,14 +258,26 @@ export default function ProductCard({ product }) {
                 // Add to wishlist
                 await addToWishlist(userId, productId);
                 showNotification('Added to wishlist!');
-            }
-
-            // Toggle the state
+            }            // Toggle the state
             setIsFavorited(!isFavorited);
+            
+            // Dispatch event to update wishlist state across all components
+            window.dispatchEvent(new CustomEvent('wishlist-updated'));
         } catch (error) {
             console.error('Error updating wishlist:', error);
             showNotification('Failed to update wishlist', 'error');
         }
+    };
+
+    // Change image handler
+    const handleImageChange = (direction) => {
+        if (!productImages || productImages.length <= 1) return;
+
+        setCurrentImageIndex(prevIndex => {
+            const newIndex = prevIndex + direction;
+            // Loop the index within the bounds of the images array
+            return (newIndex + productImages.length) % productImages.length;
+        });
     };
 
     return (
@@ -257,8 +299,7 @@ export default function ProductCard({ product }) {
                 </Snackbar>
             )}
 
-            {/* Product Card */}
-            <Card
+            {/* Product Card */}            <Card
                 onClick={handleCardClick}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
@@ -271,6 +312,9 @@ export default function ProductCard({ product }) {
                     transition: 'all 0.3s ease-in-out',
                     cursor: 'pointer',
                     overflow: 'hidden',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
                     '&:hover': {
                         transform: 'translateY(-8px)',
                         boxShadow: 'lg',
@@ -283,35 +327,78 @@ export default function ProductCard({ product }) {
                         }
                     },
                     bgcolor: isDarkMode ? 'neutral.900' : 'background.surface',
-                }}
-            >
-                <CardOverflow>
-                    <AspectRatio ratio="1" className="product-image-container" sx={{ position: 'relative' }}>
-                        {image ? (
-                            <img
-                                className="product-image"
-                                src={formatImageUrl(image)}
-                                alt={name}
-                                style={{
-                                    objectFit: 'cover',
-                                    transition: 'transform 0.5s ease'
-                                }}
-                            />
-                        ) : (
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    bgcolor: isDarkMode ? 'neutral.800' : 'neutral.100',
-                                    color: isDarkMode ? 'neutral.400' : 'neutral.500'
-                                }}
-                            >
-                                <ImageNotSupportedIcon sx={{ fontSize: 48, mb: 1 }} />
-                                <Typography level="body-sm">No Image Available</Typography>
-                            </Box>
-                        )}
+                }}            >                <CardOverflow>
+                    <AspectRatio ratio="1" className="product-image-container" sx={{ position: 'relative', height: 250, width: 250 }}>
+                        {/* Image Carousel */}
+                        <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
+                            {productImages && productImages.length > 0 ? (
+                                <img
+                                    className="product-image"
+                                    src={formatImageUrl(productImages[currentImageIndex])}
+                                    alt={name}
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = getPlaceholderImage();
+                                    }}
+                                    style={{
+                                        objectFit: 'cover',
+                                        width: '100%',
+                                        height: '100%',
+                                        transition: 'transform 0.5s ease'
+                                    }}
+                                />
+                            ) : (
+                                <ImageNotSupportedIcon sx={{ width: '100%', height: '100%', color: 'neutral.500' }} />
+                            )}
+
+                            {/* Navigation buttons - only show if more than one image */}
+                            {productImages && productImages.length > 1 && (
+                                <>
+                                    <IconButton
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleImageChange(-1);
+                                        }}
+                                        variant="soft"
+                                        size="sm"
+                                        sx={{
+                                            position: 'absolute',
+                                            top: '50%',
+                                            left: 8,
+                                            transform: 'translateY(-50%)',
+                                            bgcolor: 'rgba(255, 255, 255, 0.8)',
+                                            '&:hover': {
+                                                bgcolor: 'rgba(255, 255, 255, 1)',
+                                            }
+                                        }}
+                                    >
+                                        <ArrowBackIosNewIcon />
+                                    </IconButton>
+
+                                    <IconButton
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleImageChange(1);
+                                        }}
+                                        variant="soft"
+                                        size="sm"
+                                        sx={{
+                                            position: 'absolute',
+                                            top: '50%',
+                                            right: 8,
+                                            transform: 'translateY(-50%)',
+                                            bgcolor: 'rgba(255, 255, 255, 0.8)',
+                                            '&:hover': {
+                                                bgcolor: 'rgba(255, 255, 255, 1)',
+                                            }
+                                        }}
+                                    >
+                                        <ArrowForwardIosIcon />
+                                    </IconButton>
+                                </>
+                            )}
+
+                        </Box>
 
                         {/* Product badges */}
                         <Box sx={{ position: 'absolute', top: 8, left: 8, display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -394,10 +481,14 @@ export default function ProductCard({ product }) {
                                 {stock > 0 ? 'Add to Cart' : 'Out of Stock'}
                             </Button>
                         </Box>
-                    </AspectRatio>
-                </CardOverflow>
+                    </AspectRatio>                </CardOverflow>
 
-                <CardContent>
+                <CardContent sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flexGrow: 1,
+                    height: '100%'
+                }}>
                     <Box sx={{ mb: 1 }}>
                         <Typography level="body-xs" textColor={isDarkMode ? 'neutral.400' : 'neutral.600'}>
                             {category}

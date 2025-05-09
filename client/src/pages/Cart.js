@@ -19,6 +19,7 @@ import {
     CircularProgress,
     Chip
 } from '@mui/joy';
+import { formatImageUrl } from '../utils/imageUtils';
 import {
     Add as AddIcon,
     Remove as RemoveIcon,
@@ -367,26 +368,27 @@ const Cart = () => {
                                                 borderRadius: 'md',
                                                 overflow: 'hidden'
                                             }}
-                                        >
-                                            {item.image_url ? (
-                                                <img
-                                                    src={item.image_url}
-                                                    alt={item.name}
-                                                    style={{ objectFit: 'cover' }}
-                                                />
-                                            ) : (
-                                                <Box
-                                                    sx={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        bgcolor: darkMode ? 'neutral.800' : 'neutral.100',
-                                                        color: 'neutral.500'
-                                                    }}
-                                                >
-                                                    No image
-                                                </Box>
-                                            )}
+                                        >                                            {(Array.isArray(item.images) && item.images.length > 0) || item.image_url ? (
+                                            <img
+                                                src={formatImageUrl(Array.isArray(item.images) && item.images.length > 0
+                                                    ? item.images[0]
+                                                    : item.image_url)}
+                                                alt={item.name}
+                                                style={{ objectFit: 'cover' }}
+                                            />
+                                        ) : (
+                                            <Box
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    bgcolor: darkMode ? 'neutral.800' : 'neutral.100',
+                                                    color: 'neutral.500'
+                                                }}
+                                            >
+                                                No image
+                                            </Box>
+                                        )}
                                         </AspectRatio>
 
                                         {/* Product Details */}

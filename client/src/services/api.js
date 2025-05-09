@@ -69,6 +69,12 @@ export const formatId = (id) => {
         return null;
     }
 
+    // Handle objects that might have _id or id property
+    if (typeof id === 'object' && id !== null) {
+        if (id._id) return formatId(id._id);
+        if (id.id) return formatId(id.id);
+    }
+
     // Convert to string first to handle all input types
     const idString = String(id);
 

@@ -163,9 +163,7 @@ exports.updateProfileImage = (req, res) => {
                 return res.status(400).json({ success: false, error: 'No file uploaded' });
             }
 
-            const filePath = `/uploads/profiles/${req.file.filename}`;
-
-            const updatedUser = await User.findByIdAndUpdate(
+            const filePath = `/uploads/profiles/${req.file.filename}`; const updatedUser = await User.findByIdAndUpdate(
                 userId,
                 { personal_image: filePath },
                 { new: true }
@@ -175,7 +173,7 @@ exports.updateProfileImage = (req, res) => {
                 return res.status(404).json({ success: false, message: 'User not found' });
             }
 
-            res.status(200).json({ success: true, data: { image_url: filePath } });
+            res.status(200).json({ success: true, data: { imageUrl: filePath } });
         } catch (err) {
             console.error('Error updating profile image:', err);
             res.status(500).json({ success: false, error: 'Failed to update profile image' });

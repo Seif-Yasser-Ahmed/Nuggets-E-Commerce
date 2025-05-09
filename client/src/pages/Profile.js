@@ -5,6 +5,7 @@ import { getUserOrders } from '../services/orderService';
 import { getWishlist, removeFromWishlist } from '../services/userService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
+import { formatImageUrl } from '../utils/imageUtils';
 import {
     Box,
     Container,
@@ -117,40 +118,29 @@ function Profile() {
                 console.log("All available fields:", Object.keys(response.data.data));
 
                 // Get API base URL from the API service - but strip off the /api/v1 part
-                const apiBaseUrl = API.defaults.baseURL ? API.defaults.baseURL.split('/api/v1')[0] : '';
+                const apiBaseUrl = API.defaults.baseURL ? API.defaults.baseURL.split('/api/v1')[0] : '';                // Ensure the profile image path is properly constructed
+                // The field in the DB is personal_image, not profile_image
+                const profileImagePath = response.data.data.personal_image || '';
 
-                // Ensure the profile image path is properly constructed
-                const profileImagePath = response.data.data.profile_image || '';
+                console.log("Personal image from server:", profileImagePath);
 
-                // Construct the full image URL
-                let fullProfileImage = '';
+                // Use the formatImageUrl utility to properly format the image URL
+                const fullProfileImage = formatImageUrl(profileImagePath);
 
-                // If it's already an absolute URL (starts with http), use it directly
-                if (profileImagePath.startsWith('http')) {
-                    fullProfileImage = profileImagePath;
-                }
-                // If it's a relative URL starting with a slash (like /uploads/...)
-                else if (profileImagePath && profileImagePath.startsWith('/')) {
-                    // Remove any trailing slash from apiBaseUrl to avoid double slashes
-                    const baseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
-                    fullProfileImage = `${baseUrl}${profileImagePath}`;
-                }
-                // For any other case, ensure proper formatting
-                else if (profileImagePath) {
-                    // Remove any trailing slash from apiBaseUrl to avoid double slashes
-                    const baseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
-                    fullProfileImage = `${baseUrl}/${profileImagePath}`;
-                }
+                console.log("Formatted profile image URL:", fullProfileImage);
 
-                console.log("Full profile image URL:", fullProfileImage);
-
-                const userData = {
+                console.log("Full profile image URL:", fullProfileImage); const userData = {
                     ...response.data.data,
+                    // Map database fields to frontend fields
                     firstName: response.data.data.first_name || 'John',
                     lastName: response.data.data.last_name || 'Doe',
+                    first_name: response.data.data.first_name || 'John', // Keep original fields too
+                    last_name: response.data.data.last_name || 'Doe',    // Keep original fields too
                     email: response.data.data.email || '',
-                    profileImage: fullProfileImage,
-                    phone: response.data.data.telephone || '', // Map telephone to phone since that's what the server uses
+                    profileImage: fullProfileImage,  // For backward compatibility
+                    personal_image: response.data.data.personal_image || '', // The actual DB field
+                    phone: response.data.data.telephone || '', // Map telephone to phone for frontend
+                    telephone: response.data.data.telephone || '', // Keep original field
                     location: response.data.data.location || '',
                     bio: response.data.data.bio || 'No bio information provided.',
                     occupation: response.data.data.occupation || '',
@@ -295,32 +285,34 @@ function Profile() {
                 } else {
                     formattedBirthday = editedUser.birthday;
                 }
-            }
-
-            const profileData = {
-                first_name: editedUser.firstName,
-                last_name: editedUser.lastName,
+            } const profileData = {
+                first_name: editedUser.firstName || editedUser.first_name,
+                last_name: editedUser.lastName || editedUser.last_name,
                 email: editedUser.email,
-                telephone: editedUser.phone, // Map phone to telephone for database compatibility
+                telephone: editedUser.phone || editedUser.telephone, // Map phone to telephone for database compatibility
                 location: editedUser.location,
                 bio: editedUser.bio,
                 occupation: editedUser.occupation,
-                birthday: formattedBirthday
+                birthday: formattedBirthday,
+                personal_image: editedUser.personal_image // Preserve the personal_image field
             };
 
-            await API.put(`/users/${storedUserId}`, profileData);
-
-            // Update the local user state with edited values
+            await API.put(`/users/${storedUserId}`, profileData);            // Update the local user state with edited values
             setUser({
                 ...user,
-                firstName: editedUser.firstName,
-                lastName: editedUser.lastName,
+                first_name: editedUser.firstName || editedUser.first_name,
+                last_name: editedUser.lastName || editedUser.last_name,
+                firstName: editedUser.firstName || editedUser.first_name,
+                lastName: editedUser.lastName || editedUser.last_name,
                 email: editedUser.email,
-                phone: editedUser.phone,
+                phone: editedUser.phone || editedUser.telephone,
+                telephone: editedUser.phone || editedUser.telephone,
                 location: editedUser.location,
                 bio: editedUser.bio,
                 occupation: editedUser.occupation,
-                birthday: formattedBirthday
+                birthday: formattedBirthday,
+                personal_image: editedUser.personal_image, // Preserve the personal_image field
+                profileImage: editedUser.profileImage // Also preserve the profileImage field for backward compatibility
             });
 
             setIsEditing(false);
@@ -371,9 +363,7 @@ function Profile() {
         setTimeout(() => {
             setNotification(prev => ({ ...prev, show: false }));
         }, 3000);
-    };
-
-    const handleImageUpload = (e) => {
+    }; const handleImageUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -390,41 +380,24 @@ function Profile() {
 
                 // Get the server URL for the saved image
                 const serverImageUrl = response.data.data.imageUrl;
+                console.log("Server image URL from upload response:", serverImageUrl);
 
-                // Get API base URL from the API service - but strip off the /api/v1 part
-                const apiBaseUrl = API.defaults.baseURL ? API.defaults.baseURL.split('/api/v1')[0] : '';
-
-                // Construct full URL to the image with API base URL
-                let fullImageUrl = '';
-
-                // If it's already an absolute URL (starts with http), use it directly
-                if (serverImageUrl.startsWith('http')) {
-                    fullImageUrl = serverImageUrl;
-                }
-                // If it's a relative URL starting with a slash (like /uploads/...)
-                else if (serverImageUrl && serverImageUrl.startsWith('/')) {
-                    // Remove any trailing slash from apiBaseUrl to avoid double slashes
-                    const baseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
-                    fullImageUrl = `${baseUrl}${serverImageUrl}`;
-                }
-                // For any other case, ensure proper formatting
-                else if (serverImageUrl) {
-                    // Remove any trailing slash from apiBaseUrl to avoid double slashes
-                    const baseUrl = apiBaseUrl.endsWith('/') ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
-                    fullImageUrl = `${baseUrl}/${serverImageUrl}`;
-                }
+                // Use the formatImageUrl utility to properly format the image URL
+                const fullImageUrl = formatImageUrl(serverImageUrl);
+                console.log("Formatted image URL after upload:", fullImageUrl);
 
                 console.log("New profile image URL:", fullImageUrl);
-
                 setEditedUser({
                     ...editedUser,
-                    profileImage: fullImageUrl
+                    personal_image: serverImageUrl,
+                    profileImage: fullImageUrl  // Keep for backwards compatibility
                 });
 
                 if (!isEditing) {
                     setUser({
                         ...user,
-                        profileImage: fullImageUrl
+                        personal_image: serverImageUrl,
+                        profileImage: fullImageUrl  // Keep for backwards compatibility
                     });
                 }
 
@@ -438,15 +411,16 @@ function Profile() {
         };
 
         reader.readAsDataURL(file);
-    };
-
-    const handleRemoveFromWishlist = async (productId) => {
+    };    const handleRemoveFromWishlist = async (productId) => {
         try {
             const storedUserId = localStorage.getItem('userId');
             await removeFromWishlist(storedUserId, productId);
 
             setWishlistItems(wishlistItems.filter(item => item.id !== productId));
             showNotification('Item removed from wishlist.', 'success');
+            
+            // Dispatch event to update wishlist state across all components
+            window.dispatchEvent(new CustomEvent('wishlist-updated'));
         } catch (error) {
             console.error('Error removing item from wishlist:', error);
             showNotification('Failed to remove item from wishlist.', 'error');
@@ -633,46 +607,50 @@ function Profile() {
                                 color: darkMode ? 'white' : 'inherit'
                             }}
                         >
-                            <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <Box sx={{ position: 'relative', mb: 2 }}>
-                                    {console.log("Profile image URL being used:", isEditing ? editedUser.profileImage : user.profileImage)}
-                                    <Avatar
-                                        src={isEditing ? editedUser.profileImage : user.profileImage}
-                                        alt={user.username}
+                            <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>                                <Box sx={{ position: 'relative', mb: 2 }}>
+                                {console.log("Profile image URL being used:", isEditing
+                                    ? (editedUser.personal_image || editedUser.profileImage)
+                                    : (user.personal_image || user.profileImage))}
+                                <Avatar
+                                    src={formatImageUrl(isEditing
+                                        ? (editedUser.personal_image || editedUser.profileImage)
+                                        : (user.personal_image || user.profileImage)
+                                    )}
+                                    alt={user.username}
+                                    sx={{
+                                        width: 120,
+                                        height: 120,
+                                        border: '4px solid',
+                                        borderColor: 'primary.500',
+                                        bgcolor: (user.personal_image || user.profileImage) ? 'transparent' : 'primary.500',
+                                        fontSize: '48px'
+                                    }}
+                                >
+                                    {user.username ? user.username.charAt(0).toLowerCase() : 's'}
+                                </Avatar>
+                                {(isEditing || !user.profileImage) && (
+                                    <IconButton
+                                        component="label"
+                                        color="primary"
+                                        variant="soft"
+                                        size="sm"
                                         sx={{
-                                            width: 120,
-                                            height: 120,
-                                            border: '4px solid',
-                                            borderColor: 'primary.500',
-                                            bgcolor: user.profileImage ? 'transparent' : 'primary.500',
-                                            fontSize: '48px'
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            right: 0,
+                                            borderRadius: '50%'
                                         }}
                                     >
-                                        {user.username ? user.username.charAt(0).toLowerCase() : 's'}
-                                    </Avatar>
-                                    {(isEditing || !user.profileImage) && (
-                                        <IconButton
-                                            component="label"
-                                            color="primary"
-                                            variant="soft"
-                                            size="sm"
-                                            sx={{
-                                                position: 'absolute',
-                                                bottom: 0,
-                                                right: 0,
-                                                borderRadius: '50%'
-                                            }}
-                                        >
-                                            <input
-                                                type="file"
-                                                hidden
-                                                accept="image/*"
-                                                onChange={handleImageUpload}
-                                            />
-                                            {uploadingImage ? <CircularProgress size="sm" /> : <AddPhotoIcon />}
-                                        </IconButton>
-                                    )}
-                                </Box>
+                                        <input
+                                            type="file"
+                                            hidden
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                        />
+                                        {uploadingImage ? <CircularProgress size="sm" /> : <AddPhotoIcon />}
+                                    </IconButton>
+                                )}
+                            </Box>
 
                                 <Typography level="h4" sx={{ fontWeight: 'bold', mb: 0.5, color: darkMode ? 'white' : 'inherit' }}>
                                     {isEditing ? (
@@ -1188,13 +1166,19 @@ function Profile() {
                                                                 cursor: 'pointer'
                                                             }
                                                         }}
-                                                    >
-                                                        <AspectRatio ratio="1/1" sx={{ width: 90 }}>
-                                                            <img
-                                                                src={item.image_url || item.image}
+                                                    >                                                        <AspectRatio ratio="1/1" sx={{ width: 90 }}>                                                            <img
+                                                                src={formatImageUrl(
+                                                                    Array.isArray(item.images) && item.images.length > 0
+                                                                    ? item.images[0]
+                                                                    : (item.image_url || item.image || '')
+                                                                )}
                                                                 loading="lazy"
                                                                 alt={item.name}
                                                                 style={{ objectFit: 'cover' }}
+                                                                onError={(e) => {
+                                                                    e.target.onerror = null;
+                                                                    e.target.src = '/images/placeholder.png';
+                                                                }}
                                                             />
                                                         </AspectRatio>
                                                         <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, py: 1, pr: 2 }}>
@@ -1543,24 +1527,25 @@ function OrderDetailsModal({ open, onClose, order, loading }) {
                                                         overflow: 'hidden',
                                                         flexShrink: 0
                                                     }}
-                                                >
-                                                    {item.image_url ? (
-                                                        <img
-                                                            src={item.image_url}
-                                                            alt={item.name}
-                                                            style={{ objectFit: 'cover' }}
-                                                        />
-                                                    ) : (
-                                                        <Box sx={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            bgcolor: darkMode ? 'neutral.700' : 'neutral.200',
-                                                            height: '100%'
-                                                        }}>
-                                                            No image
-                                                        </Box>
-                                                    )}
+                                                >                                                    {(Array.isArray(item.images) && item.images.length > 0) || item.image_url ? (
+                                                    <img
+                                                        src={formatImageUrl(Array.isArray(item.images) && item.images.length > 0
+                                                            ? item.images[0]
+                                                            : item.image_url)}
+                                                        alt={item.name}
+                                                        style={{ objectFit: 'cover' }}
+                                                    />
+                                                ) : (
+                                                    <Box sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        bgcolor: darkMode ? 'neutral.700' : 'neutral.200',
+                                                        height: '100%'
+                                                    }}>
+                                                        No image
+                                                    </Box>
+                                                )}
                                                 </AspectRatio>
 
                                                 <Box sx={{ ml: 2, display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
