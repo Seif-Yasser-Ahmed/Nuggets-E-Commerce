@@ -1,5 +1,5 @@
 // src/pages/Store.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Container,
@@ -44,17 +44,14 @@ const Store = () => {
     const [categories, setCategories] = useState([]);
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [sortBy, setSortBy] = useState('featured');
-    const [showFilters, setShowFilters] = useState(false);
-
-    // Fetch products on component mount
+    const [showFilters, setShowFilters] = useState(false);    // Fetch products on component mount
     useEffect(() => {
         fetchProducts();
     }, []);
-
     // Apply filters whenever filter criteria change
     useEffect(() => {
         applyFilters();
-    }, [products, searchTerm, priceRange, selectedCategories, sortBy]);
+    }, [products, searchTerm, priceRange, selectedCategories, sortBy, applyFilters]);
 
     const fetchProducts = async () => {
         try {
@@ -92,9 +89,7 @@ const Store = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const applyFilters = () => {
+    }; const applyFilters = useCallback(() => {
         if (!products.length) return;
 
         // First filter by search term
@@ -146,10 +141,8 @@ const Store = () => {
                     if ((a.discount || 0) === 0 && (b.discount || 0) > 0) return 1;
                     return b.price - a.price;
                 });
-        }
-
-        setFilteredProducts(filtered);
-    };
+        }        setFilteredProducts(filtered);
+    }, [products, searchTerm, priceRange, selectedCategories, sortBy]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);

@@ -115,27 +115,27 @@ exports.create = async (req, res) => {
 exports.getById = async (req, res) => {
     try {
         const productId = req.params.id;
-        
+
         // Validate the product ID - more comprehensive validation
         if (!productId || productId === 'undefined' || productId === 'null') {
             console.error('Invalid product ID requested:', productId);
-            return res.status(400).json({ 
-                success: false, 
+            return res.status(400).json({
+                success: false,
                 error: 'Invalid product ID',
                 message: 'A valid product ID is required'
             });
         }
-        
+
         // Check if the ID is a valid MongoDB ObjectId
         if (!productId.match(/^[0-9a-fA-F]{24}$/)) {
             console.error('Invalid product ID format:', productId);
-            return res.status(400).json({ 
-                success: false, 
+            return res.status(400).json({
+                success: false,
                 error: 'Invalid product ID format',
                 message: 'The product ID must be a valid MongoDB ObjectId'
             });
         }
-        
+
         const product = await Product.findById(productId);
 
         if (!product) {
@@ -145,7 +145,7 @@ exports.getById = async (req, res) => {
         res.status(200).json({ success: true, data: product });
     } catch (err) {
         console.error('Error retrieving product:', err);
-        
+
         // Check for invalid ObjectId error
         if (err.name === 'CastError' && err.kind === 'ObjectId') {
             return res.status(400).json({
@@ -154,7 +154,7 @@ exports.getById = async (req, res) => {
                 message: `The provided ID "${req.params.id}" is not a valid MongoDB ObjectId`
             });
         }
-        
+
         res.status(500).json({ success: false, error: 'Error retrieving product' });
     }
 };
@@ -187,13 +187,14 @@ exports.update = async (req, res) => {
     try {
         const productId = req.params.id;
         const productData = req.body;
-        const files = req.files;
-
-        // Enhanced check for required fields for update
+        const files = req.files;        // Enhanced check for required fields for update
         const requiredFields = ['name', 'price', 'category', 'description'];
-        const missingFields = requiredFields.filter(field =>
-            productData.hasOwnProperty(field) && !productData[field] && productData[field] !== 0
-        );
+        const missingFields = requiredFields.filter(field => {
+            const fieldValue = productData[field];
+            // Fixed the logic: field is missing when it's undefined, null or empty (except price can be 0)
+            return fieldValue === undefined || fieldValue === null || 
+                (fieldValue === '' && field !== 'price');
+        });
 
         if (missingFields.length > 0) {
             return res.status(400).json({
@@ -236,8 +237,7 @@ exports.update = async (req, res) => {
             productData.images = files.map(file => `/uploads/products/${file.filename}`);
             // Set the first image as the main image
             productData.image_url = productData.images[0];
-        }
-        // If no files but existingImages are provided (during edit)
+        }        // If no files but existingImages are provided (during edit)
         else if (productData.existingImages && typeof productData.existingImages === 'string') {
             try {
                 const existingImages = JSON.parse(productData.existingImages);
@@ -251,7 +251,7 @@ exports.update = async (req, res) => {
             }
         }
         // Check that we have at least one image
-        else if (productData.hasOwnProperty('images') && (!productData.images || productData.images.length === 0) && !productData.image_url) {
+        else if (productData.images !== undefined && (!productData.images || productData.images.length === 0) && !productData.image_url) {
             return res.status(400).json({
                 success: false,
                 error: 'At least one product image is required'

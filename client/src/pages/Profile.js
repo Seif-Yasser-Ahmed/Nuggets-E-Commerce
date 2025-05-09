@@ -321,16 +321,14 @@ function Profile() {
             console.error('Error updating profile:', error);
             showNotification('Failed to update profile.', 'error');
         }
-    };
-
-    // Fetch order details for the selected order
+    };    // Fetch order details for the selected order
     const fetchOrderDetails = async (orderId) => {
         try {
             setOrderDetailsLoading(true);
             setSelectedOrder(orderId);
             setOrderModalOpen(true);
 
-            const storedUserId = localStorage.getItem('userId');
+            // Get order details
             const response = await API.get(`/orders/${orderId}`);
 
             if (response.data && response.data.success) {
@@ -1160,6 +1158,7 @@ function Profile() {
                                                 <Grid key={item.id} xs={12} sm={6}>
                                                     <Card
                                                         variant="outlined"
+                                                        onClick={() => navigate(`/item/${item.id}`)}
                                                         sx={{
                                                             display: 'flex',
                                                             flexDirection: 'row',
@@ -1171,7 +1170,7 @@ function Profile() {
                                                                 cursor: 'pointer'
                                                             }
                                                         }}
-                                                    >                                                        <AspectRatio ratio="1/1" sx={{ width: 90 }}>                                                            <img
+                                                    ><AspectRatio ratio="1/1" sx={{ width: 90 }}>                                                            <img
                                                         src={formatImageUrl(
                                                             Array.isArray(item.images) && item.images.length > 0
                                                                 ? item.images[0]
@@ -1179,10 +1178,9 @@ function Profile() {
                                                         )}
                                                         loading="lazy"
                                                         alt={item.name}
-                                                        style={{ objectFit: 'cover' }}
-                                                        onError={(e) => {
+                                                        style={{ objectFit: 'cover' }} onError={(e) => {
                                                             e.target.onerror = null;
-                                                            e.target.src = '/images/placeholder.png';
+                                                            e.target.src = getPlaceholderImage();
                                                         }}
                                                     />
                                                         </AspectRatio>

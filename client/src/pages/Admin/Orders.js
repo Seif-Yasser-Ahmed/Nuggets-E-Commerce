@@ -42,8 +42,7 @@ import {
     Assignment as AssignmentIcon,
     ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
-import API from '../../services/api';
-
+import API, { formatId } from '../../services/api';
 const Orders = () => {
     // State
     const [orders, setOrders] = useState([]);
@@ -154,19 +153,28 @@ const Orders = () => {
     // Close snackbar
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
-    };
-
-    // Filter orders based on search term
+    };    // Filter orders based on search term
     const filteredOrders = orders.filter(order => {
+        if (!order) return false;
+
         const searchTermLower = searchTerm.toLowerCase();
         // Safely check for ID (could be either id or _id property)
-        const orderId = (order._id || order.id || '').toString();
-        
+        let orderId = '';
+        try {
+            if (order._id) {
+                orderId = String(order._id);
+            } else if (order.id) {
+                orderId = String(order.id);
+            }
+        } catch (err) {
+            console.error('Error converting order ID to string:', err);
+        }
+
         return (
             orderId.includes(searchTermLower) ||
-            (order.username || '').toLowerCase().includes(searchTermLower) ||
-            (order.email || '').toLowerCase().includes(searchTermLower) ||
-            (order.status || '').toLowerCase().includes(searchTermLower)
+            (order.username ? order.username.toLowerCase().includes(searchTermLower) : false) ||
+            (order.email ? order.email.toLowerCase().includes(searchTermLower) : false) ||
+            (order.status ? order.status.toLowerCase().includes(searchTermLower) : false)
         );
     });
 

@@ -68,7 +68,7 @@ export const formatId = (id) => {
         console.error('Attempted to format undefined or null ID');
         return null;
     }
-    
+
     // Explicitly reject invalid string values
     if (id === 'undefined' || id === 'null' || id === '') {
         console.error(`Received invalid value for ID: "${id}"`);
@@ -87,7 +87,7 @@ export const formatId = (id) => {
         if (id.product && (id.product._id || id.product.id)) {
             return formatId(id.product._id || id.product.id);
         }
-        
+
         // If it's an object but doesn't have any of these properties, we can't extract an ID
         console.error('Object provided has no recognizable ID field:', id);
         return null;
@@ -107,5 +107,9 @@ export const formatId = (id) => {
     console.warn(`ID ${idString} is not in valid MongoDB ObjectId format`);
     return idString;
 };
+
+// Export the API instance and formatId function together
+api.formatId = formatId;
+api.isValidObjectId = isValidObjectId;
 
 export default api;

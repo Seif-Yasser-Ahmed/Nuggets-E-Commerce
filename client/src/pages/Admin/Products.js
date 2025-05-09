@@ -42,7 +42,7 @@ import {
     Straighten as SizeIcon,
     CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
-import API, { formatId } from '../../services/api';
+import API from '../../services/api';
 import { formatImageUrl } from '../../utils/imageUtils';
 
 const Products = () => {
@@ -277,9 +277,9 @@ const Products = () => {
             return;
         }
 
-        try {
-            // Format the ID properly for MongoDB
-            const formattedId = formatId(id);
+        try {            // Format the ID properly for MongoDB
+            const formattedId = API.formatId(id);
+            // console.log('Formatted ID for deletion:', formattedId);
 
             if (!formattedId) {
                 setSnackbar({
@@ -341,7 +341,6 @@ const Products = () => {
     // Submit form to create or update a product
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         // Enhanced validation for required fields
         const requiredFields = [
             { name: 'name', value: formData.name },
@@ -400,9 +399,7 @@ const Products = () => {
 
         // Add basic form fields - ensure proper type conversion
         productFormData.append('name', formData.name.trim());
-        productFormData.append('description', formData.description.trim());
-
-        // Make sure price is a number
+        productFormData.append('description', formData.description.trim());        // Make sure price is a number
         const price = parseFloat(formData.price);
         // if (!isNaN(price)) {
         //     productFormData.append('price', price);
@@ -437,17 +434,24 @@ const Products = () => {
                 productFormData.append('images', file);
             });
             console.log(`Added ${imageFiles.length} new image files to form data`);
-        }
-
-        // If editing and there are existing images but no new ones, we need to preserve them
+        }        // If editing and there are existing images but no new ones, we need to preserve them
         if (isEditing && imageFiles.length === 0 && imagePreviews.length > 0) {
             // Make sure we're passing valid image paths
-            let existingImages = Array.isArray(currentProduct.images) && currentProduct.images.length > 0
-                ? currentProduct.images
-                : (currentProduct.image_url ? [currentProduct.image_url] : []);
+            let existingImages = [];
 
-            // Filter out any null or undefined values
-            existingImages = existingImages.filter(img => img);
+            // Handle arrays of image URLs
+            if (Array.isArray(currentProduct.images) && currentProduct.images.length > 0) {
+                existingImages = currentProduct.images;
+            }
+            // Fall back to main image if no array is available
+            else if (currentProduct.image_url) {
+                existingImages = [currentProduct.image_url];
+            }
+
+            // Filter out any null or undefined values and make sure they're all strings
+            existingImages = existingImages
+                .filter(img => img)
+                .map(img => img.toString());
 
             if (existingImages.length > 0) {
                 productFormData.append('existingImages', JSON.stringify(existingImages));
@@ -459,27 +463,43 @@ const Products = () => {
             setLoading(true);
 
             // Log what we're about to send for debugging purposes
-            console.log(`${isEditing ? 'Updating' : 'Creating'} product with form data`);
-
-            // Check form data content
+            console.log(`${isEditing ? 'Updating' : 'Creating'} product with form data`);            // Check form data content
             for (let [key, value] of productFormData.entries()) {
                 console.log(`Form data: ${key} = ${typeof value === 'object' ? 'File/Object' : value}`);
             }
-
             if (isEditing && currentProduct) {
                 // Make sure we have a valid ID for the update
-                const productId = currentProduct.id || currentProduct._id;
+                let productId = currentProduct.id || currentProduct._id;
                 if (!productId) {
                     throw new Error('Missing product ID for update');
+                } let formattedId; try {
+                    // Use API.formatId instead of standalone formatId
+                    formattedId = API.formatId(productId);
+                    console.log('Formatted ID:', formattedId);
+                } catch (error) {
+                    console.error('Error formatting ID:', error);
+                    throw new Error('Could not format product ID for update: ' + error.message);
                 }
 
-                const formattedId = formatId(productId);
                 if (!formattedId) {
                     throw new Error('Could not format product ID for update');
                 }
 
-                // Update existing product
-                await API.put(`/products/${formattedId}`, productFormData);
+                // Log the productFormData contents for debugging
+                console.log('Product Form Data contents:');
+                for (let [key, value] of productFormData.entries()) {
+                    if (key === 'images') {
+                        console.log(`${key}: File object(s)`);
+                    } else if (key === 'existingImages') {
+                        console.log(`${key}: ${value}`);
+                    } else {
+                        console.log(`${key}: ${value}`);
+                    }
+                }
+
+                // Update existing product                console.log(`Sending update request to /products/${formattedId}`);
+                const response = await API.put(`/products/${formattedId}`, productFormData);
+                console.log('Update response:', response.data);
                 setSnackbar({
                     open: true,
                     message: 'Product updated successfully',
